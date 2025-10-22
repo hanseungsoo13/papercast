@@ -105,7 +105,7 @@ jobs:
             
             echo "📤 Sending to Slack with URL: $PODCAST_URL"
             
-            # Use jq to properly construct and escape JSON
+            # Use jq to properly construct and escape JSON with public URL
             jq -n \
               --arg date "$PODCAST_DATE" \
               --arg time "$PODCAST_TIME" \

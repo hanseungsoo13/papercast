@@ -38,7 +38,7 @@ class GCSUploader:
         content_type: str = "audio/mpeg",
         make_public: bool = True
     ) -> str:
-        """Upload a file to GCS and generate signed URL.
+        """Upload a file to GCS and return public URL.
         
         Args:
             local_path: Local file path
@@ -47,7 +47,7 @@ class GCSUploader:
             make_public: Whether to make the file publicly accessible
             
         Returns:
-            Signed URL valid for 7 days (accessible without authentication)
+            Public URL (accessible without authentication)
             
         Raises:
             FileNotFoundError: If local file doesn't exist
@@ -73,17 +73,10 @@ class GCSUploader:
                     self.logger.warning(f"Could not set individual ACL (uniform bucket-level access enabled): {acl_error}")
                     self.logger.info(f"File will be public if bucket has public access enabled")
             
-            # Generate signed URL that works for 7 days
-            from datetime import timedelta
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(days=7),
-                method="GET"
-            )
-            
-            self.logger.info(f"File uploaded successfully with signed URL")
-            
-            return signed_url
+            # Use public URL directly
+            public_url = blob.public_url
+            self.logger.info(f"File uploaded successfully with public URL: {public_url}")
+            return public_url
             
         except Exception as e:
             self.logger.error(f"Failed to upload file to GCS: {e}")
@@ -96,7 +89,7 @@ class GCSUploader:
         destination_path: str,
         make_public: bool = True
     ) -> str:
-        """Upload JSON data to GCS and generate signed URL.
+        """Upload JSON data to GCS and return public URL.
         
         Args:
             data: Dictionary to upload as JSON
@@ -104,7 +97,7 @@ class GCSUploader:
             make_public: Whether to make the file publicly accessible
             
         Returns:
-            Signed URL valid for 7 days (accessible without authentication)
+            Public URL (accessible without authentication)
             
         Raises:
             Exception: If upload fails
@@ -125,17 +118,10 @@ class GCSUploader:
                     self.logger.warning(f"Could not set individual ACL (uniform bucket-level access enabled): {acl_error}")
                     self.logger.info(f"JSON will be public if bucket has public access enabled")
             
-            # Generate signed URL that works for 7 days
-            from datetime import timedelta
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(days=7),
-                method="GET"
-            )
-            
-            self.logger.info(f"JSON uploaded successfully with signed URL")
-            
-            return signed_url
+            # Use public URL directly
+            public_url = blob.public_url
+            self.logger.info(f"JSON uploaded successfully with public URL: {public_url}")
+            return public_url
             
         except Exception as e:
             self.logger.error(f"Failed to upload JSON to GCS: {e}")
