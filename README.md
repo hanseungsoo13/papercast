@@ -161,6 +161,8 @@ uv run pytest -v --run-contract-tests
 > 💡 **자세한 설정 가이드**:
 > - [API 키 설정 가이드](docs/API_SETUP.md) - Gemini API, Service Account 설정
 > - [GCP 설정 가이드](docs/GCP_SETUP.md) - Text-to-Speech, Storage API 활성화 ⭐
+> - [GitHub Actions 설정 가이드](docs/GITHUB_ACTIONS_SETUP.md) - 자동 실행 설정 ⭐⭐
+> - [Slack 알림 설정 가이드](docs/SLACK_SETUP.md) - GitHub Actions → Slack 알림
 
 ### 빠른 설정
 
@@ -199,6 +201,7 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 다�
 | `GEMINI_API_KEY` | Google Gemini API 키 | [Google AI Studio](https://makersuite.google.com/app/apikey)에서 발급 |
 | `GCP_SERVICE_ACCOUNT_KEY` | GCP Service Account JSON (base64 encoded) | GCP Console에서 Service Account 생성 후 키 다운로드, `base64 -w 0 < key.json` 명령어로 인코딩 |
 | `GCS_BUCKET_NAME` | Google Cloud Storage 버킷 이름 | 예: `papercast-podcasts` |
+| `SLACK_WEBHOOK_URL` | Slack Webhook URL (선택사항) | [Slack API](https://api.slack.com/apps)에서 Incoming Webhook 생성 |
 
 ### Service Account 권한 설정
 

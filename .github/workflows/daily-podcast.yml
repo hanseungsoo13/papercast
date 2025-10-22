@@ -58,11 +58,31 @@ jobs:
           path: data/logs/*.log
           retention-days: 7
       
-      - name: Notify on failure
+      - name: Notify Slack on failure
         if: failure()
-        run: |
-          echo "::error::Podcast generation failed. Check logs for details."
-          exit 1
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#papercast'
+          text: |
+            🚨 PaperCast 생성 실패
+            날짜: $(date +%Y-%m-%d)
+            실행 시간: $(date)
+            로그를 확인해주세요.
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+      
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#papercast'
+          text: |
+            ✅ PaperCast 생성 완료!
+            날짜: $(date +%Y-%m-%d)
+            실행 시간: $(date)
+            새로운 팟캐스트가 준비되었습니다.
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
       
       - name: Clean up credentials
         if: always()
