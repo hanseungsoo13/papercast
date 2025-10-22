@@ -1,0 +1,79 @@
+name: Daily Podcast Generation
+
+on:
+  schedule:
+    # Runs every day at 21:00 UTC (06:00 KST next day)
+    - cron: '0 21 * * *'
+  
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-podcast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Configure GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 -d > service-account-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json" >> $GITHUB_ENV
+      
+      - name: Set environment variables
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+          echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "TZ=Asia/Seoul" >> $GITHUB_ENV
+          echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
+      
+      - name: Run podcast generation
+        id: generate
+        run: |
+          python src/main.py
+        continue-on-error: true
+      
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: pipeline-logs
+          path: data/logs/*.log
+          retention-days: 7
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Podcast generation failed. Check logs for details."
+          exit 1
+      
+      - name: Clean up credentials
+        if: always()
+        run: |
+          rm -f service-account-key.json
+      
+      - name: Report success
+        if: success()
+        run: |
+          echo "::notice::Podcast generated successfully!"
+          PODCAST_ID=$(date +%Y-%m-%d)
+          echo "Podcast ID: $PODCAST_ID"
+
+

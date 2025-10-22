@@ -31,7 +31,24 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Code Quality Standards
+- [ ] 모든 코드 변경사항이 명확성, 유지보수성, 확장성을 보장하는가?
+- [ ] 복잡성이 정당화되었는가? YAGNI 원칙을 준수하는가?
+
+### Testing Standards
+- [ ] TDD 접근법이 계획되었는가? (테스트 우선 작성)
+- [ ] 테스트 커버리지 80% 이상 목표가 설정되었는가?
+- [ ] 단위, 통합, 계약, E2E 테스트가 모두 계획되었는가?
+
+### User Experience Consistency
+- [ ] 사용자 여정이 3클릭 이내로 완료 가능한가?
+- [ ] 일관된 UI/UX 패턴이 정의되었는가?
+- [ ] 접근성 표준(WCAG 2.1 AA) 준수가 계획되었는가?
+
+### Performance Requirements
+- [ ] API 응답 시간 200ms 이내 목표가 설정되었는가?
+- [ ] 페이지 로딩 시간 2초 이내 목표가 설정되었는가?
+- [ ] 동시 사용자 1000명 지원이 계획되었는가?
 
 ## Project Structure
 
