@@ -56,11 +56,20 @@ AIzaSyDXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 **Linux/Mac**:
 ```bash
 base64 -w 0 < service-account-key.json
+# 또는
+cat service-account-key.json | base64 -w 0
 ```
 
 **Windows (PowerShell)**:
 ```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("service-account-key.json"))
+```
+
+**결과 확인** (중요!):
+```bash
+# 인코딩된 값을 복사한 후, 디코딩해서 JSON이 맞는지 확인
+echo "YOUR_BASE64_STRING" | base64 --decode | python3 -m json.tool
+# JSON이 정상적으로 출력되면 OK!
 ```
 
 **값 예시**:
@@ -267,7 +276,27 @@ Error: Invalid API key
 
 **해결**: `GCS_BUCKET_NAME`이 실제 버킷 이름과 일치하는지 확인
 
-#### 4. Slack 알림 실패
+#### 4. Base64 디코딩 오류
+```
+JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+File ./service-account-key.json is not a valid json file
+```
+
+**원인**: `GCP_SERVICE_ACCOUNT_KEY` Secret이 올바르게 base64 인코딩되지 않음
+
+**해결**:
+1. Service Account JSON 파일을 다시 base64로 인코딩:
+   ```bash
+   cat service-account-key.json | base64 -w 0
+   ```
+2. 인코딩 결과 확인:
+   ```bash
+   echo "YOUR_BASE64_STRING" | base64 --decode | python3 -m json.tool
+   ```
+3. JSON이 정상적으로 출력되면 GitHub Secret 업데이트
+4. **주의**: Secret 값 복사 시 앞뒤 공백이 없어야 함
+
+#### 5. Slack 알림 실패
 ```
 Error: Webhook URL is not valid
 ```
