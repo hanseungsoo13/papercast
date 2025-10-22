@@ -59,8 +59,8 @@ jobs:
           output=$(uv run python src/main.py)
           echo "$output"
           
-          # Extract podcast URL from output
-          podcast_url=$(echo "$output" | grep "Audio URL:" | awk '{print $3}')
+          # Extract podcast URL from output (format: "  Audio URL: {url}")
+          podcast_url=$(echo "$output" | grep "Audio URL:" | sed 's/.*Audio URL: //' | xargs | head -n1)
           echo "podcast_url=$podcast_url" >> $GITHUB_OUTPUT
           echo "✅ Captured podcast URL: $podcast_url"
         continue-on-error: true
