@@ -24,17 +24,20 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: '3.12'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
       
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          uv sync --frozen
       
       - name: Configure GCP credentials
         run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 --decode > service-account-key.json
+          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" | base64 --decode > service-account-key.json
           # Verify the JSON is valid
           if ! python3 -m json.tool service-account-key.json > /dev/null 2>&1; then
             echo "Error: Invalid JSON in service-account-key.json"
@@ -53,7 +56,7 @@ jobs:
       - name: Run podcast generation
         id: generate
         run: |
-          python src/main.py
+          uv run python src/main.py
         continue-on-error: true
       
       - name: Upload logs on failure
@@ -72,7 +75,7 @@ jobs:
             curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
               -H 'Content-type: application/json' \
               --data '{
-                "text": "🚨 *PaperCast 생성 실패*\n• Repository: ${{ github.repository }}\n• Workflow: ${{ github.workflow }}\n• Run ID: ${{ github.run_id }}\n• 로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                "text": "🚨 *PaperCast 생성 실패*\n• 날짜: $(date +%Y-%m-%d)\n• 시간: $(date +%H:%M:%S KST)\n• 로그를 확인해주세요."
               }'
           fi
       
@@ -86,7 +89,7 @@ jobs:
             curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
               -H 'Content-type: application/json' \
               --data "{
-                \"text\": \"✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• Repository: ${{ github.repository }}\n• 팟캐스트: ${PODCAST_URL}\n🎧 새로운 AI 논문 팟캐스트를 들어보세요!\"
+                \"text\": \"✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +%H:%M:%S KST)\n• <${PODCAST_URL}|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!\"
               }"
           fi
       
