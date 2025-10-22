@@ -60,29 +60,29 @@ jobs:
       
       - name: Notify Slack on failure
         if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#papercast'
-          text: |
-            🚨 PaperCast 생성 실패
-            날짜: $(date +%Y-%m-%d)
-            실행 시간: $(date)
-            로그를 확인해주세요.
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              --data '{
+                "text": "🚨 *PaperCast 생성 실패*\n• Repository: ${{ github.repository }}\n• Workflow: ${{ github.workflow }}\n• Run ID: ${{ github.run_id }}\n• 로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }'
+          fi
       
       - name: Notify Slack on success
         if: success()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: success
-          channel: '#papercast'
-          text: |
-            ✅ PaperCast 생성 완료!
-            날짜: $(date +%Y-%m-%d)
-            실행 시간: $(date)
-            새로운 팟캐스트가 준비되었습니다.
-          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            PODCAST_DATE=$(date +%Y-%m-%d)
+            PODCAST_URL="https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME }}/${PODCAST_DATE}/episode.mp3"
+            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              --data "{
+                \"text\": \"✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• Repository: ${{ github.repository }}\n• 팟캐스트: ${PODCAST_URL}\n🎧 새로운 AI 논문 팟캐스트를 들어보세요!\"
+              }"
+          fi
       
       - name: Clean up credentials
         if: always()
