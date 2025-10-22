@@ -68,36 +68,33 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR_TEAM_ID/YOUR_BOT_ID/YOUR
 
 ```yaml
 - name: Notify Slack on success
-  uses: 8398a7/action-slack@v3
-  with:
-    status: success
-    channel: '#papercast'
-    text: |
-      🎉 오늘의 AI 논문 팟캐스트가 완성되었습니다!
-      📅 날짜: $(date +%Y-%m-%d)
-      🎧 지금 바로 들어보세요!
-    webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+  if: success()
+  continue-on-error: true
+  run: |
+    if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+      curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+        -H 'Content-type: application/json' \
+        --data '{
+          "text": "🎉 오늘의 AI 논문 팟캐스트가 완성되었습니다!\n📅 날짜: 2025-10-23\n🎧 지금 바로 들어보세요!"
+        }'
+    fi
 ```
 
 ## 🔧 고급 설정
 
-### 채널 변경
-```yaml
-channel: '#your-channel-name'
-```
-
 ### 사용자 멘션 추가
-```yaml
-text: |
-  ✅ PaperCast 생성 완료!
-  <@U1234567890> 새로운 팟캐스트가 준비되었습니다.
+```bash
+"text": "✅ PaperCast 생성 완료!\n<@U1234567890> 새로운 팟캐스트가 준비되었습니다."
 ```
 
-### 이모지 변경
-```yaml
-text: |
-  🎧 PaperCast 생성 완료!
-  📻 오늘의 AI 논문을 들어보세요!
+### 이모지 및 포맷팅
+```bash
+"text": "🎧 *PaperCast 생성 완료!*\n📻 오늘의 AI 논문을 들어보세요!\n• 날짜: 2025-10-23\n• 논문 수: 3개"
+```
+
+### 링크 추가
+```bash
+"text": "✅ PaperCast 생성!\n<https://storage.googleapis.com/bucket/episode.mp3|🎧 팟캐스트 듣기>"
 ```
 
 ## 🚨 문제 해결

@@ -34,8 +34,14 @@ jobs:
       
       - name: Configure GCP credentials
         run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 -d > service-account-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 --decode > service-account-key.json
+          # Verify the JSON is valid
+          if ! python3 -m json.tool service-account-key.json > /dev/null 2>&1; then
+            echo "Error: Invalid JSON in service-account-key.json"
+            cat service-account-key.json
+            exit 1
+          fi
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account-key.json" >> $GITHUB_ENV
       
       - name: Set environment variables
         run: |
