@@ -274,28 +274,22 @@ class PodcastPipeline:
         
         return podcast
     
-    #[TODO]: 이 부분도 gemini가 각 논문의 스크립트를 읽고 인트로와 아웃트로 팟캐스트 멘트를 짜도록 변경
     def _create_podcast_script(self, papers: list[Paper]) -> str:
-        """Create podcast script from papers."""
-        intro = f"안녕하세요. {config.podcast_title_prefix}입니다. "
-        intro += f"{datetime.now().strftime('%Y년 %m월 %d일')} "
-        intro += f"Hugging Face 트렌딩 논문 Top {len(papers)}를 소개합니다. "
+        """Create podcast script from papers using Gemini.
         
-        script_parts = [intro]
+        Uses Gemini AI to generate a natural and engaging podcast script
+        with intro, content, and outro based on paper summaries.
+        """
+        podcast_date = datetime.now().strftime("%Y-%m-%d")
         
-        for i, paper in enumerate(papers, 1):
-            part = f"\n\n{i}번째 논문입니다. "
-            part += f"제목은 {paper.title}입니다. "
-            part += f"저자는 {', '.join(paper.authors[:3])}입니다. "
-            if len(paper.authors) > 3:
-                part += f"외 {len(paper.authors) - 3}명입니다. "
-            part += f"\n\n{paper.summary}"
-            script_parts.append(part)
+        # Use Gemini to generate complete podcast script
+        script = self.summarizer.generate_podcast_script(
+            papers=papers,
+            date=podcast_date,
+            language="ko"
+        )
         
-        outro = "\n\n오늘의 논문 소개를 마치겠습니다. 감사합니다."
-        script_parts.append(outro)
-        
-        return "".join(script_parts)
+        return script
     
     def _save_logs(self):
         """Save processing logs."""
