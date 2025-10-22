@@ -91,18 +91,31 @@ jobs:
         run: |
           if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
             PODCAST_DATE=$(date +%Y-%m-%d)
+            PODCAST_TIME=$(date +%H:%M:%S)
             PODCAST_URL="${{ steps.generate.outputs.podcast_url }}"
+            
+            # Debug: Print captured URL
+            echo "📋 Captured URL from output: '$PODCAST_URL'"
             
             # Fallback if URL extraction failed
             if [ -z "$PODCAST_URL" ]; then
+              echo "⚠️ URL extraction failed, using fallback URL"
               PODCAST_URL="https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME }}/${PODCAST_DATE}/episode.mp3"
             fi
             
+            echo "📤 Sending to Slack with URL: $PODCAST_URL"
+            
+            # Use jq to properly construct and escape JSON
+            jq -n \
+              --arg date "$PODCAST_DATE" \
+              --arg time "$PODCAST_TIME" \
+              --arg url "$PODCAST_URL" \
+              '{
+                text: "✅ *PaperCast 생성 완료!*\n• 날짜: \($date)\n• 시간: \($time) KST\n• <\($url)|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!"
+              }' | \
             curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
               -H 'Content-type: application/json' \
-              --data "{
-                \"text\": \"✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +%H:%M:%S KST)\n• <${PODCAST_URL}|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!\"
-              }"
+              --data @-
           fi
       
       - name: Clean up credentials
