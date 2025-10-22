@@ -15,7 +15,8 @@
 
 ### Prerequisites
 
-- Python 3.11 이상
+- Python 3.12 이상
+- [uv](https://docs.astral.sh/uv/) (Python 패키지 매니저)
 - Google Cloud Platform 계정
 - GitHub 계정
 
@@ -23,21 +24,29 @@
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/papercast.git
+git clone https://github.com/hanseungsoo13/papercast.git
 cd papercast
 ```
 
-2. Create virtual environment:
+2. Install uv (if not already installed):
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-venv\Scripts\activate  # Windows
+# Linux/Mac
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or via pip
+pip install uv
 ```
 
-3. Install dependencies:
+3. Install dependencies with uv:
 ```bash
-pip install -r requirements.txt
+# 가상환경 자동 생성 및 의존성 설치
+uv sync
+
+# 또는 개발 의존성 포함 설치
+uv sync --dev
 ```
 
 4. Configure environment:
@@ -80,60 +89,68 @@ cp ~/Downloads/your-service-account-key.json credentials/service-account.json
 
 5. **설정 검증** (권장):
 ```bash
-# 설정이 올바른지 확인
+# uv를 사용한 설정 검증
+uv run python check_config.py
+
+# 또는 직접 실행
 python check_config.py
 ```
 
 6. Run locally:
 ```bash
-# 프로젝트 루트에서 실행
+# uv를 사용한 실행 (권장)
+uv run python run.py
+
+# 또는 uv run으로 모듈 실행
+uv run python -m src.main
+
+# 또는 직접 실행
+uv run python src/main.py
+
+# 가상환경 활성화 후 실행 (선택사항)
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate  # Windows
 python run.py
-
-# 또는 모듈로 실행
-python -m src.main
-
-# 또는 직접 실행 (경로 문제가 있을 수 있음)
-python src/main.py
 ```
 
-> 💡 **권장**: `python run.py` 사용 (import 경로 자동 설정)
+> 💡 **권장**: `uv run python run.py` 사용 (가상환경 자동 관리)
 
 ## Testing
 
 ### Run Unit Tests
 ```bash
-# 모든 단위 테스트 실행
-pytest tests/unit/ -v
+# uv를 사용한 단위 테스트 실행
+uv run pytest tests/unit/ -v
 
 # 커버리지 포함
-pytest tests/unit/ -v --cov=src --cov-report=html
+uv run pytest tests/unit/ -v --cov=src --cov-report=html
 ```
 
 ### Run Contract Tests
 ```bash
 # Contract 테스트 실행 (실제 API 호출 또는 Mock)
-pytest tests/contract/ -v --run-contract-tests
+uv run pytest tests/contract/ -v --run-contract-tests
 
 # Contract 테스트 스킵 (기본값)
-pytest tests/contract/ -v
+uv run pytest tests/contract/ -v
 ```
 
 ### Run Integration Tests
 ```bash
 # 통합 테스트 실행
-pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 
 # 전체 파이프라인 테스트만 실행
-pytest tests/integration/test_pipeline.py::TestPipelineIntegration::test_full_pipeline_end_to_end -v
+uv run pytest tests/integration/test_pipeline.py::TestPipelineIntegration::test_full_pipeline_end_to_end -v
 ```
 
 ### Run All Tests
 ```bash
 # 모든 테스트 실행 (Contract 제외)
-pytest -v
+uv run pytest -v
 
 # Contract 테스트 포함 모든 테스트
-pytest -v --run-contract-tests
+uv run pytest -v --run-contract-tests
 ```
 
 ### Test Coverage Report
@@ -144,11 +161,17 @@ pytest -v --run-contract-tests
 > 💡 **자세한 설정 가이드**:
 > - [API 키 설정 가이드](docs/API_SETUP.md) - Gemini API, Service Account 설정
 > - [GCP 설정 가이드](docs/GCP_SETUP.md) - Text-to-Speech, Storage API 활성화 ⭐
+> - [GitHub Actions 설정 가이드](docs/GITHUB_ACTIONS_SETUP.md) - 자동 실행 설정 ⭐⭐
+> - [Slack 알림 설정 가이드](docs/SLACK_SETUP.md) - GitHub Actions → Slack 알림
 
 ### 빠른 설정
 
 **자동 설정 스크립트 사용**:
 ```bash
+# uv를 사용한 스크립트 실행
+uv run ./setup_env.sh
+
+# 또는 직접 실행
 ./setup_env.sh
 ```
 
@@ -178,6 +201,7 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 다�
 | `GEMINI_API_KEY` | Google Gemini API 키 | [Google AI Studio](https://makersuite.google.com/app/apikey)에서 발급 |
 | `GCP_SERVICE_ACCOUNT_KEY` | GCP Service Account JSON (base64 encoded) | GCP Console에서 Service Account 생성 후 키 다운로드, `base64 -w 0 < key.json` 명령어로 인코딩 |
 | `GCS_BUCKET_NAME` | Google Cloud Storage 버킷 이름 | 예: `papercast-podcasts` |
+| `SLACK_WEBHOOK_URL` | Slack Webhook URL (선택사항) | [Slack API](https://api.slack.com/apps)에서 Incoming Webhook 생성 |
 
 ### Service Account 권한 설정
 
@@ -223,29 +247,34 @@ gh secret list
 ### Running Tests
 
 ```bash
-# All tests
-pytest
+# All tests with uv
+uv run pytest
 
 # Specific test types
-pytest tests/unit/ -m unit
-pytest tests/integration/ -m integration
-pytest tests/contract/ -m contract
+uv run pytest tests/unit/ -m unit
+uv run pytest tests/integration/ -m integration
+uv run pytest tests/contract/ -m contract
 
 # With coverage
-pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 ```
 
 ### Code Quality
 
 ```bash
-# Format code
-black src/ tests/
+# Format code with uv
+uv run black src/ tests/
 
-# Lint
-pylint src/
+# Lint with uv
+uv run pylint src/
 
-# Type check
-mypy src/
+# Type check with uv
+uv run mypy src/
+
+# 또는 uv를 사용한 개발 도구 실행
+uv run --group dev black src/ tests/
+uv run --group dev pylint src/
+uv run --group dev mypy src/
 ```
 
 ## Project Structure
