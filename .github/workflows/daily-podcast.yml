@@ -56,7 +56,13 @@ jobs:
       - name: Run podcast generation
         id: generate
         run: |
-          uv run python src/main.py
+          output=$(uv run python src/main.py)
+          echo "$output"
+          
+          # Extract podcast URL from output
+          podcast_url=$(echo "$output" | grep "Audio URL:" | awk '{print $3}')
+          echo "podcast_url=$podcast_url" >> $GITHUB_OUTPUT
+          echo "✅ Captured podcast URL: $podcast_url"
         continue-on-error: true
       
       - name: Upload logs on failure
@@ -85,7 +91,13 @@ jobs:
         run: |
           if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
             PODCAST_DATE=$(date +%Y-%m-%d)
-            PODCAST_URL="https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME }}/${PODCAST_DATE}/episode.mp3"
+            PODCAST_URL="${{ steps.generate.outputs.podcast_url }}"
+            
+            # Fallback if URL extraction failed
+            if [ -z "$PODCAST_URL" ]; then
+              PODCAST_URL="https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME }}/${PODCAST_DATE}/episode.mp3"
+            fi
+            
             curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
               -H 'Content-type: application/json' \
               --data "{
