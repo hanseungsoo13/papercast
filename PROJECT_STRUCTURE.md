@@ -77,9 +77,10 @@ src/
 ├── services/                 # 비즈니스 로직
 │   ├── collector.py         # 논문 수집 (웹 스크래핑)
 │   ├── summarizer.py        # AI 요약 (Gemini Pro)
+│   ├── short_summarizer.py  # 3줄 요약 생성 (Gemini Pro)
 │   ├── tts.py               # 음성 변환 (Google TTS)
 │   ├── uploader.py          # 클라우드 업로드 (GCS)
-│   └── generator.py         # 정적 사이트 생성
+│   └── generator.py       # 정적 사이트 생성
 │
 ├── utils/                    # 유틸리티
 │   ├── logger.py            # 로깅 설정

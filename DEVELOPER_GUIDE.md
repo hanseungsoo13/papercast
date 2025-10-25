@@ -22,9 +22,10 @@
 
 ### 핵심 기능
 - **자동화**: GitHub Actions를 통한 매일 자동 실행
-- **AI 처리**: Gemini Pro 요약 + Google TTS 음성 변환
-- **웹 플랫폼**: 정적 사이트 생성 + GitHub Pages 호스팅
-- **사용자 경험**: 오디오 플레이어 + PDF 뷰어 통합
+- **AI 처리**: Gemini Pro 요약 + 3줄 요약 + Google TTS 음성 변환
+- **웹 플랫폼**: FastAPI 백엔드 + Next.js 프론트엔드
+- **사용자 경험**: 오디오 플레이어 + 논문 상세 페이지 + 스마트 링크
+- **알림**: Slack 웹훅을 통한 성공/실패 알림
 
 ### 기술 스택 요약
 - **백엔드**: Python 3.12+ (FastAPI)
@@ -84,9 +85,11 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (Next.js)                        │
 │  • React 18 + TypeScript                                    │
-│  • Server-Side Rendering                                    │
-│  • API 프록시 (FastAPI 연동)                                │
+│  • Server-Side Rendering (SSR)                              │
+│  • Static Site Generation (SSG)                             │
+│  • API 클라이언트 (FastAPI 연동)                             │
 │  • 반응형 UI + 오디오 플레이어                               │
+│  • 논문 상세 페이지 + 에피소드 페이지                         │
 └─────────────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -96,14 +99,16 @@
 │  • Pydantic 데이터 검증                                      │
 │  • JSON 파일 기반 데이터 저장소                              │
 │  • CORS 설정                                                │
+│  • 에피소드/논문 CRUD API                                    │
 └─────────────────────────────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  Core Pipeline (Python)                     │
-│  • 논문 수집 + AI 요약 + TTS 변환                            │
+│  • 논문 수집 + AI 요약 + 3줄 요약 + TTS 변환                 │
 │  • Google Cloud Storage 업로드                              │
-│  • 정적 사이트 생성                                          │
+│  • JSON 데이터 저장                                          │
+│  • Slack 알림 전송                                          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -130,9 +135,9 @@ papercast/
 ├── api/                      # FastAPI backend
 │   ├── routes/              # API 엔드포인트
 │   │   ├── health.py        # 헬스 체크
-│   │   └── episodes.py      # 에피소드 API
+│   │   ├── episodes.py      # 에피소드 API
+│   │   └── papers.py        # 논문 API
 │   ├── schemas.py           # Pydantic 응답 스키마
-│   ├── repository.py        # 데이터 접근 레이어
 │   ├── dependencies.py      # FastAPI 의존성
 │   └── main.py              # FastAPI 앱
 ├── frontend/                 # Next.js frontend
@@ -140,15 +145,25 @@ papercast/
 │   │   ├── components/       # React 컴포넌트
 │   │   │   ├── AudioPlayer.tsx
 │   │   │   ├── EpisodeCard.tsx
-│   │   │   └── LoadingSpinner.tsx
+│   │   │   ├── LoadingSpinner.tsx
+│   │   │   ├── ErrorMessage.tsx
+│   │   │   ├── HeroSection.tsx
+│   │   │   └── FeatureGrid.tsx
 │   │   ├── pages/           # Next.js 페이지
-│   │   │   └── index.tsx    # 홈페이지
+│   │   │   ├── index.tsx    # 홈페이지
+│   │   │   ├── archive.tsx  # 아카이브 페이지
+│   │   │   ├── episodes/[id].tsx  # 에피소드 상세
+│   │   │   └── papers/[id].tsx    # 논문 상세
 │   │   ├── services/        # API 클라이언트
 │   │   │   ├── api.ts       # API 서비스
 │   │   │   └── types.ts     # TypeScript 타입
-│   │   └── styles/          # CSS 스타일
+│   │   ├── styles/          # CSS 스타일
+│   │   │   └── globals.css  # 글로벌 스타일
+│   │   └── _app.tsx         # Next.js 앱 래퍼
 │   ├── package.json         # Node.js 의존성
-│   └── next.config.js       # Next.js 설정
+│   ├── next.config.js       # Next.js 설정
+│   ├── tailwind.config.js   # Tailwind CSS 설정
+│   └── postcss.config.js    # PostCSS 설정
 └── tests/                   # 테스트 스위트
     ├── unit/               # 단위 테스트
     ├── integration/        # 통합 테스트
@@ -322,6 +337,219 @@ static-site/
 └── assets/
     ├── css/styles.css
     └── js/script.js
+```
+
+---
+
+## 🔧 백엔드 아키텍처 (FastAPI)
+
+### API 구조
+
+```
+api/
+├── main.py              # FastAPI 앱 진입점
+├── schemas.py           # Pydantic 응답 스키마
+├── dependencies.py      # 의존성 주입
+└── routes/              # API 엔드포인트
+    ├── health.py        # 헬스 체크
+    ├── episodes.py      # 에피소드 CRUD
+    └── papers.py        # 논문 CRUD
+```
+
+### 핵심 API 엔드포인트
+
+#### 1. 헬스 체크 API
+```python
+# GET /api/health
+{
+  "status": "healthy",
+  "timestamp": "2025-01-23T10:30:00Z",
+  "version": "1.0.0"
+}
+```
+
+#### 2. 에피소드 API
+```python
+# GET /api/episodes - 에피소드 목록
+{
+  "episodes": [
+    {
+      "id": "2025-01-23",
+      "title": "Daily AI Papers - 2025-01-23",
+      "publication_date": "2025-01-23",
+      "audio_url": "https://storage.googleapis.com/.../episode.mp3",
+      "duration_seconds": 1800,
+      "papers_count": 3
+    }
+  ],
+  "total": 7,
+  "limit": 20,
+  "offset": 0
+}
+
+# GET /api/episodes/{id} - 특정 에피소드 상세
+{
+  "id": "2025-01-23",
+  "title": "Daily AI Papers - 2025-01-23",
+  "papers": [
+    {
+      "id": "2510.19600",
+      "title": "Human-Agent Collaborative...",
+      "authors": ["Author 1", "Author 2"],
+      "short_summary": "3줄 요약...",
+      "url": "https://huggingface.co/papers/2510.19600"
+    }
+  ]
+}
+```
+
+#### 3. 논문 API
+```python
+# GET /api/papers - 논문 목록
+# GET /api/papers/{id} - 특정 논문 상세
+{
+  "id": "2510.19600",
+  "title": "Human-Agent Collaborative Paper-to-Page Crafting",
+  "authors": ["Author 1", "Author 2"],
+  "abstract": "논문 초록...",
+  "summary": "상세 요약...",
+  "short_summary": "3줄 요약...",
+  "url": "https://huggingface.co/papers/2510.19600",
+  "published_date": "2025-01-22"
+}
+```
+
+### 데이터 저장소
+
+**JSON 파일 기반 NoSQL**:
+```
+data/
+├── podcasts/            # 에피소드 메타데이터
+│   ├── 2025-01-23.json
+│   ├── 2025-01-22.json
+│   └── index.json       # 에피소드 목록 인덱스
+└── papers/              # 논문 상세 데이터
+    ├── 2510.19600.json
+    └── 2510.19779.json
+```
+
+### CORS 설정
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://papercast.vercel.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+---
+
+## 🌐 프론트엔드 아키텍처 (Next.js)
+
+### 페이지 라우팅
+
+```
+frontend/src/pages/
+├── index.tsx            # 홈페이지 (/)
+├── archive.tsx         # 아카이브 (/archive)
+├── episodes/
+│   └── [id].tsx        # 에피소드 상세 (/episodes/2025-01-23)
+└── papers/
+    └── [id].tsx        # 논문 상세 (/papers/2510.19600)
+```
+
+### 컴포넌트 구조
+
+```
+frontend/src/components/
+├── AudioPlayer.tsx     # 오디오 플레이어
+├── EpisodeCard.tsx     # 에피소드 카드
+├── LoadingSpinner.tsx  # 로딩 스피너
+├── ErrorMessage.tsx    # 에러 메시지
+├── HeroSection.tsx     # 히어로 섹션
+└── FeatureGrid.tsx     # 기능 그리드
+```
+
+### API 클라이언트
+
+```typescript
+// services/api.ts
+export class ApiService {
+  private baseUrl = 'http://localhost:8001/api';
+  
+  async getEpisodes(): Promise<EpisodeResponse[]> {
+    const response = await fetch(`${this.baseUrl}/episodes`);
+    return response.json();
+  }
+  
+  async getEpisode(id: string): Promise<EpisodeDetailResponse> {
+    const response = await fetch(`${this.baseUrl}/episodes/${id}`);
+    return response.json();
+  }
+  
+  async getPaper(id: string): Promise<PaperResponse> {
+    const response = await fetch(`${this.baseUrl}/papers/${id}`);
+    return response.json();
+  }
+}
+```
+
+### 스타일링 (Tailwind CSS)
+
+```css
+/* globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 커스텀 컴포넌트 클래스 */
+.paper-item {
+  @apply border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors;
+}
+```
+
+### 상태 관리
+
+**React Hooks 기반**:
+- `useState`: 로컬 상태 관리
+- `useEffect`: API 호출 및 사이드 이펙트
+- `useRouter`: Next.js 라우팅
+
+```typescript
+// pages/episodes/[id].tsx
+export default function EpisodeDetail() {
+  const router = useRouter();
+  const { id } = router.query;
+  
+  const [episode, setEpisode] = useState<EpisodeWithPapers | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchEpisode = async () => {
+      try {
+        const episode = await apiService.getEpisode(id as string);
+        setEpisode(episode);
+      } catch (err) {
+        setError('Failed to load episode');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchEpisode();
+  }, [id]);
+}
 ```
 
 ---
@@ -601,16 +829,25 @@ mkdir -p credentials
 #### 3. 개발 서버 실행
 
 ```bash
-# 방법 1: 전체 파이프라인 실행 (처음 한 번)
+# 방법 1: 풀스택 개발 서버 (권장)
+bash scripts/run-fullstack.sh
+
+# 방법 2: 백엔드만 실행
+cd api
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+# 방법 3: 프론트엔드만 실행
+cd frontend
+npm run dev
+
+# 방법 4: 전체 파이프라인 실행 (데이터 생성)
 python run.py
-
-# 방법 2: 개발 서버만 실행
-python dev_server.py
-
-# 방법 3: 사이트 재생성 + 서버 실행
-python scripts/dev-regenerate.py
-python dev_server.py
 ```
+
+**풀스택 개발 서버**:
+- 백엔드: `http://localhost:8001` (FastAPI)
+- 프론트엔드: `http://localhost:3000` (Next.js)
+- API 문서: `http://localhost:8001/docs`
 
 ### IDE 설정 (VSCode/Cursor)
 
@@ -770,16 +1007,39 @@ jobs:
 ```
 1. GitHub Actions 트리거 (매일 6AM)
    ↓
-2. 전체 파이프라인 실행 (논문 수집 → 사이트 생성)
+2. 전체 파이프라인 실행 (논문 수집 → AI 요약 → TTS 변환)
    ↓
-3. static-site/ 디렉토리 생성
+3. Google Cloud Storage에 MP3 업로드
    ↓
-4. gh-pages 브랜치에 자동 푸시
+4. JSON 데이터 저장 (data/podcasts/)
    ↓
-5. GitHub Pages가 자동 배포
+5. 백엔드 배포 (Google Cloud Run)
    ↓
-6. https://username.github.io/papercast 에서 접근 가능
+6. 프론트엔드 배포 (Vercel)
+   ↓
+7. Slack 알림 전송 (웹사이트 링크 포함)
+   ↓
+8. 사용자가 웹사이트에서 새로운 에피소드 확인 가능
 ```
+
+### 배포 환경
+
+**백엔드 (FastAPI)**:
+- **플랫폼**: Google Cloud Run
+- **도메인**: `https://papercast-api-xxx.run.app`
+- **포트**: 8001
+- **환경 변수**: GEMINI_API_KEY, GCS_BUCKET_NAME
+
+**프론트엔드 (Next.js)**:
+- **플랫폼**: Vercel
+- **도메인**: `https://papercast.vercel.app`
+- **포트**: 3000
+- **환경 변수**: NEXT_PUBLIC_API_URL
+
+**데이터 저장소**:
+- **파일**: Google Cloud Storage
+- **구조**: `data/podcasts/{date}.json`
+- **접근**: 공개 읽기 권한
 
 ---
 
