@@ -34,6 +34,7 @@ class Paper(BaseModel):
     published_date: Optional[str] = Field(None, description="Publication date (YYYY-MM-DD)")
     upvotes: Optional[int] = Field(None, ge=0, description="Number of upvotes")
     summary: Optional[str] = Field(None, max_length=5000, description="AI-generated summary")
+    short_summary: Optional[str] = Field(None, max_length=1000, description="3-line summary for episode display")
     collected_at: datetime = Field(..., description="Collection timestamp")
     arxiv_id: Optional[str] = Field(None, description="ArXiv paper ID")
     categories: Optional[List[str]] = Field(None, description="Paper categories/tags")

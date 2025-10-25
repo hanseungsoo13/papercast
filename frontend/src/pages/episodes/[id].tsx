@@ -207,9 +207,21 @@ export default function EpisodeDetail() {
                           </div>
                         </div>
                         
-                        <p className="text-gray-700 mb-4 leading-relaxed">
-                          {paper.summary}
-                        </p>
+                        <div className="text-gray-700 mb-4 leading-relaxed">
+                          {paper.short_summary ? (
+                            <div className="space-y-2">
+                              {paper.short_summary.split('\n').map((line, index) => (
+                                <p key={index} className="text-sm">
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">
+                              요약 정보를 불러오는 중...
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 

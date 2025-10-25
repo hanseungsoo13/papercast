@@ -14,6 +14,7 @@ from src.models.podcast import Podcast
 from src.models.processing_log import ProcessingLog
 from src.services.collector import PaperCollector
 from src.services.summarizer import Summarizer
+from src.services.short_summarizer import ShortSummarizer
 from src.services.tts import TTSConverter
 from src.services.uploader import GCSUploader
 from src.services.generator import StaticSiteGenerator
@@ -39,6 +40,7 @@ class PodcastPipeline:
         # Initialize services
         self.collector = PaperCollector()
         self.summarizer = Summarizer(api_key=config.gemini_api_key)
+        self.short_summarizer = ShortSummarizer()
         self.tts = TTSConverter(credentials_path=config.google_credentials_path)
         self.uploader = GCSUploader(
             bucket_name=config.gcs_bucket_name,
@@ -146,13 +148,23 @@ class PodcastPipeline:
                 self.logger.info(f"  Summarizing paper {i}/{len(papers)}: {paper.title}")
                 summary = self.summarizer.generate_summary(paper, language="ko")
                 paper.summary = summary
+                
+                # 3줄 요약 생성
+                self.logger.info(f"  Generating short summary for paper {i}/{len(papers)}: {paper.title}")
+                short_summary = self.short_summarizer.generate_short_summary(
+                    paper.title, 
+                    paper.abstract, 
+                    summary
+                )
+                paper.short_summary = short_summary
+                
                 papers_with_summaries.append(paper)
             
             log.mark_completed()
             log.metadata = {"summaries_generated": len(papers_with_summaries)}
             self.logs.append(log)
             
-            self.logger.info(f"✓ Generated {len(papers_with_summaries)} summaries")
+            self.logger.info(f"✓ Generated {len(papers_with_summaries)} summaries and short summaries")
             return papers_with_summaries
             
         except Exception as e:

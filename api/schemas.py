@@ -66,6 +66,7 @@ class PaperResponse(BaseModel):
     authors: List[str] = Field(..., description="저자 목록")
     abstract: Optional[str] = Field(None, description="논문 초록")
     summary: Optional[str] = Field(None, description="AI 생성 요약")
+    short_summary: Optional[str] = Field(None, description="3줄 요약")
     url: str = Field(..., description="논문 URL")
     arxiv_id: Optional[str] = Field(None, description="ArXiv ID")
     categories: Optional[List[str]] = Field(None, description="논문 카테고리")
@@ -83,6 +84,7 @@ class PaperResponse(BaseModel):
             authors=paper.authors,
             abstract=paper.abstract,
             summary=paper.summary,
+            short_summary=paper.short_summary,
             url=str(paper.url),
             arxiv_id=paper.arxiv_id,
             categories=paper.categories,
