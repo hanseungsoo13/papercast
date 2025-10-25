@@ -27,12 +27,13 @@
 - **사용자 경험**: 오디오 플레이어 + PDF 뷰어 통합
 
 ### 기술 스택 요약
-- **언어**: Python 3.11+
+- **백엔드**: Python 3.12+ (FastAPI)
+- **프론트엔드**: Next.js 14 + React 18 + TypeScript
 - **AI/ML**: Google Gemini Pro, Google Cloud TTS
 - **스토리지**: Google Cloud Storage
-- **호스팅**: GitHub Pages
+- **호스팅**: Vercel (프론트엔드), Google Cloud Run (백엔드)
 - **자동화**: GitHub Actions
-- **프론트엔드**: Vanilla JavaScript (정적 사이트)
+- **데이터**: JSON 파일 기반 (NoSQL)
 
 ---
 
@@ -77,28 +78,82 @@
                     ↓ GitHub Pages 자동 배포
 ```
 
+### 풀스택 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                        │
+│  • React 18 + TypeScript                                    │
+│  • Server-Side Rendering                                    │
+│  • API 프록시 (FastAPI 연동)                                │
+│  • 반응형 UI + 오디오 플레이어                               │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    API Layer (FastAPI)                       │
+│  • RESTful API 엔드포인트                                    │
+│  • Pydantic 데이터 검증                                      │
+│  • JSON 파일 기반 데이터 저장소                              │
+│  • CORS 설정                                                │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Core Pipeline (Python)                     │
+│  • 논문 수집 + AI 요약 + TTS 변환                            │
+│  • Google Cloud Storage 업로드                              │
+│  • 정적 사이트 생성                                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### 컴포넌트 다이어그램
 
 ```
-src/
-├── models/                    # 데이터 모델 (Pydantic)
-│   ├── paper.py              # Paper: 논문 정보
-│   ├── podcast.py            # Podcast: 팟캐스트 메타데이터
-│   └── processing_log.py     # ProcessingLog: 처리 로그
-│
-├── services/                  # 비즈니스 로직
-│   ├── collector.py          # 논문 수집 (웹 스크래핑)
-│   ├── summarizer.py         # AI 요약 (Gemini Pro)
-│   ├── tts.py                # 음성 변환 (Google TTS)
-│   ├── uploader.py           # 클라우드 업로드 (GCS)
-│   └── generator.py          # 정적 사이트 생성
-│
-├── utils/                     # 유틸리티
-│   ├── logger.py             # 로깅 설정
-│   ├── config.py             # 환경 변수 관리
-│   └── retry.py              # 재시도 로직
-│
-└── main.py                    # 파이프라인 오케스트레이션
+papercast/
+├── src/                       # Core Python modules
+│   ├── models/               # 데이터 모델 (Pydantic)
+│   │   ├── paper.py          # Paper: 논문 정보
+│   │   ├── podcast.py        # Podcast: 팟캐스트 메타데이터
+│   │   └── processing_log.py # ProcessingLog: 처리 로그
+│   ├── services/             # 비즈니스 로직
+│   │   ├── collector.py      # 논문 수집 (웹 스크래핑)
+│   │   ├── summarizer.py     # AI 요약 (Gemini Pro)
+│   │   ├── tts.py           # 음성 변환 (Google TTS)
+│   │   ├── uploader.py      # 클라우드 업로드 (GCS)
+│   │   └── generator.py      # 정적 사이트 생성
+│   ├── utils/                # 유틸리티
+│   │   ├── logger.py         # 로깅 설정
+│   │   ├── config.py         # 환경 변수 관리
+│   │   └── retry.py          # 재시도 로직
+│   └── main.py               # 파이프라인 오케스트레이션
+├── api/                      # FastAPI backend
+│   ├── routes/              # API 엔드포인트
+│   │   ├── health.py        # 헬스 체크
+│   │   └── episodes.py      # 에피소드 API
+│   ├── schemas.py           # Pydantic 응답 스키마
+│   ├── repository.py        # 데이터 접근 레이어
+│   ├── dependencies.py      # FastAPI 의존성
+│   └── main.py              # FastAPI 앱
+├── frontend/                 # Next.js frontend
+│   ├── src/
+│   │   ├── components/       # React 컴포넌트
+│   │   │   ├── AudioPlayer.tsx
+│   │   │   ├── EpisodeCard.tsx
+│   │   │   └── LoadingSpinner.tsx
+│   │   ├── pages/           # Next.js 페이지
+│   │   │   └── index.tsx    # 홈페이지
+│   │   ├── services/        # API 클라이언트
+│   │   │   ├── api.ts       # API 서비스
+│   │   │   └── types.ts     # TypeScript 타입
+│   │   └── styles/          # CSS 스타일
+│   ├── package.json         # Node.js 의존성
+│   └── next.config.js       # Next.js 설정
+└── tests/                   # 테스트 스위트
+    ├── unit/               # 단위 테스트
+    ├── integration/        # 통합 테스트
+    ├── contract/           # 계약 테스트
+    └── api/                # API 테스트
 ```
 
 ---

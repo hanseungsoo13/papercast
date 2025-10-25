@@ -21,20 +21,30 @@
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                      Frontend                               │
-│  • Vanilla JavaScript (ES6+)                               │
-│  • HTML5 + CSS3                                            │
+│                    Frontend (Next.js)                      │
+│  • React 18 + TypeScript                                  │
+│  • Next.js 14 (SSR/SSG)                                    │
+│  • Tailwind CSS (스타일링)                                 │
 │  • Responsive Design                                        │
-│  • No Framework (정적 사이트)                               │
+│  • Audio Player (커스텀 컴포넌트)                            │
 └────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌────────────────────────────────────────────────────────────┐
-│                     Backend/Logic                           │
-│  • Python 3.11+                                            │
+│                    API Layer (FastAPI)                     │
+│  • FastAPI (고성능 웹 프레임워크)                          │
 │  • Pydantic (데이터 검증)                                   │
+│  • Uvicorn (ASGI 서버)                                     │
+│  • CORS (Cross-Origin Resource Sharing)                    │
+└────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────────┐
+│                  Core Pipeline (Python)                   │
+│  • Python 3.12+                                            │
 │  • BeautifulSoup4 (웹 스크래핑)                            │
 │  • Requests (HTTP 클라이언트)                               │
+│  • JSON 파일 기반 데이터 저장                               │
 └────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -509,13 +519,23 @@ git push origin gh-pages
 
 ## 🌐 웹 기술
 
-### Vanilla JavaScript (프레임워크 없음)
+### Next.js (React 프레임워크)
 
-**왜 프레임워크를 사용하지 않았나?**
-- 정적 사이트에 프레임워크 오버헤드 불필요
-- 번들 크기 최소화 (빠른 로딩)
-- 빌드 프로세스 불필요
-- 간단한 인터랙션만 필요
+**왜 Next.js를 선택했나?**
+- 서버사이드 렌더링 (SSR) 지원
+- 자동 코드 분할 및 최적화
+- API 라우트 지원 (FastAPI 프록시)
+- TypeScript 내장 지원
+- Vercel 배포 최적화
+
+### FastAPI (Python 웹 프레임워크)
+
+**핵심 특징**:
+- 자동 API 문서 생성 (Swagger UI)
+- Pydantic 기반 데이터 검증
+- 비동기 처리 지원
+- 고성능 (Starlette 기반)
+- 타입 힌트 활용
 
 **핵심 기능 구현**:
 
