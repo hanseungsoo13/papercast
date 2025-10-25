@@ -4,6 +4,12 @@ Auto-generated from all feature plans. Last updated: 2025-10-20
 
 ## Active Technologies
 - Python 3.11 (001-huggingface-podcast-automation)
+- Python 3.11 + huggingface-hub (공식 SDK), google-generativeai (Gemini Pro), google-cloud-texttospeech, google-cloud-storage, requests, pydantic, tenacity (재시도), pytest, beautifulsoup4 (웹 스크래핑) (001-huggingface-podcast-automation)
+- 파일 기반 (JSON for metadata, MP3 for audio, Google Cloud Storage for hosting) (001-huggingface-podcast-automation)
+- Python 3.11+, Node.js 18+, TypeScript 5.0+ + FastAPI, Next.js, PostgreSQL, SQLAlchemy, Pydantic, Google Cloud APIs (001-huggingface-podcast-automation)
+- PostgreSQL for structured data, Google Cloud Storage for MP3 files (001-huggingface-podcast-automation)
+- Python 3.11+ (백엔드), Node.js 18+ (프론트엔드) + FastAPI (신규), 기존 services (collector, summarizer, tts, uploader, generator) 재사용 (001-huggingface-podcast-automation)
+- 기존 JSON 파일 기반 (data/podcasts/*.json) 유지, PostgreSQL은 선택사항 (001-huggingface-podcast-automation)
 
 ## Project Structure
 ```
@@ -18,7 +24,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11: Follow standard conventions
 
 ## Recent Changes
-- 001-huggingface-podcast-automation: Added Python 3.11
+- 001-huggingface-podcast-automation: Added Python 3.11+ (백엔드), Node.js 18+ (프론트엔드) + FastAPI (신규), 기존 services (collector, summarizer, tts, uploader, generator) 재사용
+- 001-huggingface-podcast-automation: Added Python 3.11+, Node.js 18+, TypeScript 5.0+ + FastAPI, Next.js, PostgreSQL, SQLAlchemy, Pydantic, Google Cloud APIs
+- 001-huggingface-podcast-automation: Added Python 3.11 + huggingface-hub (공식 SDK), google-generativeai (Gemini Pro), google-cloud-texttospeech, google-cloud-storage, requests, pydantic, tenacity (재시도), pytest, beautifulsoup4 (웹 스크래핑)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

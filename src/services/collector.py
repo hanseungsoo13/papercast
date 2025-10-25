@@ -1,8 +1,9 @@
 """Paper collector service for fetching trending papers from Hugging Face."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 import requests
+from bs4 import BeautifulSoup
 
 from src.models.paper import Paper
 from src.utils.logger import logger
@@ -12,7 +13,7 @@ from src.utils.retry import retry_on_failure
 class PaperCollector:
     """Collects trending papers from Hugging Face."""
     
-    HUGGINGFACE_API_URL = "https://huggingface.co/api/daily_papers"
+    HUGGINGFACE_PAPERS_URL = "https://huggingface.co/papers"
     
     def __init__(self):
         """Initialize the paper collector."""
@@ -20,7 +21,7 @@ class PaperCollector:
     
     @retry_on_failure(max_attempts=3, exceptions=(requests.RequestException,))
     def fetch_papers(self, count: int = 3) -> List[Paper]:
-        """Fetch top trending papers from Hugging Face.
+        """Fetch top trending papers from Hugging Face's daily papers page.
         
         Args:
             count: Number of papers to fetch (default: 3)
@@ -30,89 +31,254 @@ class PaperCollector:
             
         Raises:
             ValueError: If no papers found
-            Exception: If API request fails
+            Exception: If request fails
         """
-        self.logger.info(f"Fetching top {count} trending papers from Hugging Face...")
+        # 어제 날짜 계산
+        yesterday = datetime.now() - timedelta(days=1)
+        date_str = yesterday.strftime('%Y-%m-%d')
+        
+        # Hugging Face 날짜별 페이퍼 페이지 URL 생성
+        url = f"{self.HUGGINGFACE_PAPERS_URL}?date={date_str}"
+        
+        self.logger.info(f"Fetching top {count} papers from {date_str} from Hugging Face...")
         
         try:
-            response = requests.get(self.HUGGINGFACE_API_URL, timeout=30)
+            response = requests.get(url, timeout=30)
             
             if response.status_code == 429:
                 raise Exception("Rate limit exceeded. Please try again later.")
             
             response.raise_for_status()
-            papers_data = response.json()
             
-            if not papers_data:
-                raise ValueError("No papers found in Hugging Face response")
+            # HTML 파싱
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            self.logger.info(f"Found {len(papers_data)} papers")
-            
-            # Parse and convert to Paper objects
+            # 논문 정보 추출
             papers = []
-            for i, paper_data in enumerate(papers_data[:count]):
+            paper_articles = soup.find_all('article', limit=count)
+            
+            if not paper_articles:
+                raise ValueError(f"No papers found for date {date_str}")
+            
+            self.logger.info(f"Found {len(paper_articles)} papers for {date_str}")
+            
+            for i, article in enumerate(paper_articles):
                 try:
-                    # Debug: Log the structure of first paper
-                    if i == 0:
-                        self.logger.debug(f"Sample paper structure: {list(paper_data.keys())}")
-                    
-                    paper = self._parse_paper(paper_data)
+                    paper = self._parse_paper_from_html(article, date_str)
                     papers.append(paper)
+                    self.logger.debug(f"Successfully parsed paper {i+1}: {paper.title[:50]}...")
                 except Exception as e:
-                    self.logger.warning(f"Failed to parse paper {paper_data.get('id', 'unknown')}: {e}")
-                    self.logger.debug(f"Paper data keys: {list(paper_data.keys()) if isinstance(paper_data, dict) else type(paper_data)}")
+                    self.logger.warning(f"Failed to parse paper {i+1}: {e}")
                     continue
             
             if not papers:
                 raise ValueError("No papers could be parsed successfully")
             
-            self.logger.info(f"Successfully fetched {len(papers)} papers")
+            self.logger.info(f"Successfully fetched {len(papers)} papers from {date_str}")
             return papers[:count]
             
         except requests.RequestException as e:
             self.logger.error(f"Failed to fetch papers from Hugging Face: {e}")
             raise
     
-    def _parse_paper(self, data: dict) -> Paper:
-        """Parse paper data from Hugging Face API response.
+    def _parse_paper_from_html(self, article, date_str: str) -> Paper:
+        """Parse paper data from HTML article element with enhanced metadata.
         
         Args:
-            data: Raw paper data from API (contains 'paper' object)
+            article: BeautifulSoup article element
+            date_str: Date string in YYYY-MM-DD format
             
         Returns:
-            Paper object
+            Paper object with enhanced metadata
         """
-        # Extract paper object from response
-        paper_obj = data.get("paper", {})
+        # 제목 추출
+        title_elem = article.find('h3')
+        title = title_elem.get_text(strip=True) if title_elem else "Untitled"
         
-        # Extract author names
-        authors = [author.get("name", "Unknown") for author in paper_obj.get("authors", [])]
+        # 논문 URL 추출
+        link_elem = article.find('a', href=True)
+        paper_url = ""
+        paper_id = "unknown"
+        
+        if link_elem and 'href' in link_elem.attrs:
+            href = link_elem['href']
+            # 상대 경로를 절대 경로로 변환
+            if href.startswith('/papers/'):
+                paper_url = f"https://huggingface.co{href}"
+                paper_id = href.split('/papers/')[-1]
+            elif href.startswith('http'):
+                paper_url = href
+                if '/papers/' in href:
+                    paper_id = href.split('/papers/')[-1]
+        
+        # 개별 논문 페이지에서 상세 정보 가져오기
+        authors, published_date = self._fetch_paper_details(paper_url) if paper_url else ([], None)
+        
         if not authors:
             authors = ["Unknown"]
         
-        # Parse publication date
-        published_date = None
-        if "publishedAt" in data:
+        # 초록 추출
+        abstract = ""
+        abstract_elem = article.find('p', class_=lambda x: x and ('abstract' in x.lower() or 'description' in x.lower()))
+        if abstract_elem:
+            abstract = abstract_elem.get_text(strip=True)
+        else:
+            # 일반 p 태그에서 찾기
+            p_elems = article.find_all('p')
+            if p_elems:
+                abstract = p_elems[0].get_text(strip=True)
+        
+        # 좋아요/댓글 수 추출
+        upvotes = 0
+        upvote_elem = article.find('span', class_=lambda x: x and ('upvote' in x.lower() or 'like' in x.lower()))
+        if upvote_elem:
             try:
-                pub_dt = datetime.fromisoformat(data["publishedAt"].replace("Z", "+00:00"))
-                published_date = pub_dt.strftime("%Y-%m-%d")
+                upvote_text = upvote_elem.get_text(strip=True)
+                upvotes = int(''.join(filter(str.isdigit, upvote_text)))
             except:
                 pass
         
-        # Get paper ID
-        paper_id = paper_obj.get("id", "unknown")
+        # ArXiv ID 추출
+        arxiv_id = None
+        if paper_id and paper_id != "unknown":
+            arxiv_id = paper_id  # Hugging Face paper ID often matches ArXiv ID
         
-        # Build paper URL
-        paper_url = f"https://huggingface.co/papers/{paper_id}"
+        # 카테고리/태그 추출
+        categories = []
+        tag_elements = article.find_all(['span', 'a'], class_=lambda x: x and ('tag' in x.lower() or 'category' in x.lower()))
+        for tag in tag_elements:
+            tag_text = tag.get_text(strip=True)
+            if tag_text and len(tag_text) < 50:
+                categories.append(tag_text)
+        
+        # 썸네일 URL 추출
+        thumbnail_url = None
+        img_elem = article.find('img')
+        if img_elem and 'src' in img_elem.attrs:
+            src = img_elem['src']
+            if src.startswith('http'):
+                thumbnail_url = src
+            elif src.startswith('/'):
+                thumbnail_url = f"https://huggingface.co{src}"
+        
+        # iframe 임베딩 지원 확인
+        embed_supported = self._check_embed_support(paper_url) if paper_url else False
+        
+        # 조회수 추출 (있는 경우)
+        view_count = None
+        view_elem = article.find('span', class_=lambda x: x and ('view' in x.lower() or 'read' in x.lower()))
+        if view_elem:
+            try:
+                view_text = view_elem.get_text(strip=True)
+                view_count = int(''.join(filter(str.isdigit, view_text)))
+            except:
+                pass
         
         return Paper(
             id=paper_id,
-            title=data.get("title", paper_obj.get("title", "Untitled")),
+            title=title,
             authors=authors,
-            abstract=data.get("summary", paper_obj.get("abstract", "")),
+            abstract=abstract,
             url=paper_url,
-            published_date=published_date,
-            upvotes=data.get("numComments", 0),  # Using comment count as proxy for engagement
-            collected_at=datetime.utcnow()
+            published_date=published_date or date_str,
+            upvotes=upvotes,
+            collected_at=datetime.utcnow(),
+            arxiv_id=arxiv_id,
+            categories=categories if categories else None,
+            thumbnail_url=thumbnail_url,
+            embed_supported=embed_supported,
+            view_count=view_count
         )
+    
+    def _fetch_paper_details(self, paper_url: str) -> tuple[List[str], str]:
+        """Fetch detailed paper information from individual paper page.
+        
+        Args:
+            paper_url: URL of the individual paper page
+            
+        Returns:
+            Tuple of (authors_list, published_date)
+        """
+        try:
+            self.logger.debug(f"Fetching details from {paper_url}")
+            response = requests.get(paper_url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 저자 정보 추출
+            authors = []
+            
+            # Authors 섹션 찾기
+            authors_section = soup.find('div', string=lambda text: text and 'Authors:' in text)
+            if authors_section:
+                # Authors: 다음에 오는 저자들 찾기
+                parent = authors_section.parent if authors_section.parent else authors_section
+                author_links = parent.find_all('a', href=True)
+                authors = [link.get_text(strip=True) for link in author_links if link.get_text(strip=True)]
+            
+            # 대안: 저자 링크들을 직접 찾기
+            if not authors:
+                author_links = soup.find_all('a', href=lambda x: x and '/user/' in x)
+                authors = [link.get_text(strip=True) for link in author_links if link.get_text(strip=True)]
+            
+            # 발행일 추출
+            published_date = None
+            
+            # Published on 날짜 찾기
+            published_elem = soup.find('div', string=lambda text: text and 'Published on' in text)
+            if published_elem:
+                # Published on 다음에 오는 날짜 찾기
+                parent = published_elem.parent if published_elem.parent else published_elem
+                date_text = parent.get_text(strip=True)
+                # "Published on Oct 22" 형태에서 날짜 추출
+                import re
+                date_match = re.search(r'Published on (\w+ \d+)', date_text)
+                if date_match:
+                    published_date = date_match.group(1)
+            
+            # 대안: 메타데이터에서 날짜 찾기
+            if not published_date:
+                meta_date = soup.find('meta', {'property': 'article:published_time'})
+                if meta_date and meta_date.get('content'):
+                    from datetime import datetime
+                    try:
+                        dt = datetime.fromisoformat(meta_date['content'].replace('Z', '+00:00'))
+                        published_date = dt.strftime('%Y-%m-%d')
+                    except:
+                        pass
+            
+            self.logger.debug(f"Found {len(authors)} authors and published_date: {published_date}")
+            return authors, published_date
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch paper details from {paper_url}: {e}")
+            return [], None
+    
+    def _check_embed_support(self, url: str) -> bool:
+        """Check if a paper URL supports iframe embedding.
+        
+        Args:
+            url: Paper URL to check
+            
+        Returns:
+            True if embedding is supported, False otherwise
+        """
+        try:
+            response = requests.head(url, timeout=5, allow_redirects=True)
+            x_frame_options = response.headers.get('X-Frame-Options', '').lower()
+            
+            # Check for embedding restrictions
+            if x_frame_options in ['deny', 'sameorigin']:
+                return False
+            
+            # Check Content-Security-Policy
+            csp = response.headers.get('Content-Security-Policy', '')
+            if 'frame-ancestors' in csp.lower() and "'none'" in csp.lower():
+                return False
+            
+            return True
+        except Exception as e:
+            self.logger.debug(f"Could not check embed support for {url}: {e}")
+            return False
 

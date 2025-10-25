@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class Paper(BaseModel):
-    """Represents a paper from Hugging Face.
+    """Represents a paper from Hugging Face with enhanced metadata.
     
     Attributes:
         id: Paper unique identifier (Hugging Face paper ID)
@@ -19,6 +19,11 @@ class Paper(BaseModel):
         upvotes: Number of upvotes
         summary: AI-generated summary (Gemini Pro)
         collected_at: Collection timestamp (ISO 8601)
+        arxiv_id: ArXiv paper ID (if available)
+        categories: Paper categories/tags
+        thumbnail_url: Paper thumbnail image URL
+        embed_supported: Whether iframe embedding is supported
+        view_count: View count on Hugging Face
     """
     
     id: str = Field(..., min_length=1, description="Paper unique identifier")
@@ -28,8 +33,13 @@ class Paper(BaseModel):
     url: HttpUrl = Field(..., description="Paper URL on Hugging Face")
     published_date: Optional[str] = Field(None, description="Publication date (YYYY-MM-DD)")
     upvotes: Optional[int] = Field(None, ge=0, description="Number of upvotes")
-    summary: Optional[str] = Field(None, max_length=1000, description="AI-generated summary")
+    summary: Optional[str] = Field(None, max_length=5000, description="AI-generated summary")
     collected_at: datetime = Field(..., description="Collection timestamp")
+    arxiv_id: Optional[str] = Field(None, description="ArXiv paper ID")
+    categories: Optional[List[str]] = Field(None, description="Paper categories/tags")
+    thumbnail_url: Optional[str] = Field(None, description="Paper thumbnail URL")
+    embed_supported: Optional[bool] = Field(None, description="iframe embedding support")
+    view_count: Optional[int] = Field(None, ge=0, description="View count on Hugging Face")
     
     class Config:
         """Pydantic configuration."""
@@ -44,7 +54,11 @@ class Paper(BaseModel):
         Returns:
             Dictionary representation of the paper
         """
-        return self.model_dump(mode='json')
+        data = self.model_dump(mode='json')
+        # Ensure URL is a string
+        if 'url' in data:
+            data['url'] = str(data['url'])
+        return data
     
     @classmethod
     def from_dict(cls, data: dict) -> "Paper":

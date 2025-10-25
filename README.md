@@ -1,6 +1,6 @@
-# PaperCast: HuggingFace Podcast Automation
+# PaperCast: AI 논문 팟캐스트 플랫폼
 
-매일 아침 자동으로 Hugging Face 트렌딩 논문 Top 3를 수집하여 Gemini Pro로 요약하고, Google TTS로 음성 변환한 후 Google Cloud Storage에 업로드하여 공유 플랫폼에서 재생/다운로드 가능하게 만드는 자동화 팟캐스트 서비스입니다.
+매일 아침 자동으로 Hugging Face 트렌딩 논문 Top 3를 수집하여 Gemini Pro로 요약하고, Google TTS로 음성 변환한 후 Google Cloud Storage에 업로드하여 웹 플랫폼에서 재생/다운로드 가능하게 만드는 풀스택 자동화 팟캐스트 서비스입니다.
 
 ## Features
 
@@ -8,7 +8,10 @@
 - 📝 **AI 요약**: Google Gemini Pro를 사용한 한국어 요약 생성
 - 🎙️ **TTS 변환**: Google Cloud Text-to-Speech로 고품질 음성 생성
 - ☁️ **클라우드 저장**: Google Cloud Storage에 MP3 파일 업로드
-- 🌐 **웹 플랫폼**: GitHub Pages를 통한 팟캐스트 재생/다운로드
+- 🌐 **풀스택 웹 플랫폼**: FastAPI 백엔드 + Next.js 프론트엔드
+- 📱 **반응형 UI**: 모바일/데스크톱 최적화된 사용자 인터페이스
+- 🎵 **고급 오디오 플레이어**: 재생/일시정지, 볼륨 조절, 구간 이동
+- 📄 **논문 뷰어**: ArXiv PDF 직접 링크 및 임베드 지원
 - 🔄 **완전 자동화**: GitHub Actions를 통한 무인 운영
 
 ## Quick Start
@@ -16,7 +19,9 @@
 ### Prerequisites
 
 - Python 3.12 이상
+- Node.js 18 이상
 - [uv](https://docs.astral.sh/uv/) (Python 패키지 매니저)
+- npm 또는 yarn (Node.js 패키지 매니저)
 - Google Cloud Platform 계정
 - GitHub 계정
 
@@ -97,23 +102,31 @@ python check_config.py
 ```
 
 6. Run locally:
+
+**풀스택 개발 서버 실행**:
 ```bash
-# uv를 사용한 실행 (권장)
-uv run python run.py
+# 통합 실행 스크립트 (권장)
+./scripts/run-fullstack.sh
 
-# 또는 uv run으로 모듈 실행
-uv run python -m src.main
+# 또는 개별 실행
+# API 서버 (터미널 1)
+uv run uvicorn api.main:app --host 0.0.0.0 --port 8001 --reload
 
-# 또는 직접 실행
-uv run python src/main.py
-
-# 가상환경 활성화 후 실행 (선택사항)
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate  # Windows
-python run.py
+# 프론트엔드 서버 (터미널 2)
+cd frontend && npm run dev
 ```
 
-> 💡 **권장**: `uv run python run.py` 사용 (가상환경 자동 관리)
+**팟캐스트 생성 파이프라인 실행**:
+```bash
+# uv를 사용한 실행 (권장)
+uv run python src/main.py
+
+# 또는 직접 실행
+uv run python -m src.main
+```
+
+> 💡 **개발 환경**: 풀스택 개발 시 `./scripts/run-fullstack.sh` 사용
+> 💡 **팟캐스트 생성**: `uv run python src/main.py` 사용
 
 ## Testing
 
@@ -280,27 +293,48 @@ uv run --group dev mypy src/
 ## Project Structure
 
 ```
-src/
-├── models/              # Data models (Paper, Podcast, ProcessingLog)
-├── services/            # Core services
-│   ├── collector.py     # Hugging Face paper collection
-│   ├── summarizer.py    # Gemini Pro summarization
-│   ├── tts.py           # Google TTS conversion
-│   ├── uploader.py      # GCS upload
-│   └── generator.py     # Static site generation
-├── utils/               # Utilities (logger, retry, config)
-└── main.py              # Main pipeline
-
-tests/
-├── unit/                # Unit tests
-├── integration/         # Integration tests
-└── contract/            # Contract tests
-
-.github/workflows/
-└── daily-podcast.yml    # GitHub Actions workflow
-
-static-site/             # Generated static site
-└── podcasts/            # Podcast metadata
+papercast/
+├── src/                    # Core Python modules
+│   ├── models/            # Data models (Paper, Podcast, ProcessingLog)
+│   ├── services/          # Core services
+│   │   ├── collector.py   # Hugging Face paper collection
+│   │   ├── summarizer.py  # Gemini Pro summarization
+│   │   ├── tts.py        # Google TTS conversion
+│   │   ├── uploader.py   # GCS upload
+│   │   └── generator.py  # Static site generation
+│   ├── utils/             # Utilities (logger, retry, config)
+│   └── main.py           # Main pipeline
+├── api/                   # FastAPI backend
+│   ├── routes/           # API endpoints
+│   │   ├── health.py     # Health check endpoints
+│   │   └── episodes.py   # Episode endpoints
+│   ├── schemas.py        # Pydantic response schemas
+│   ├── repository.py     # Data access layer
+│   ├── dependencies.py   # FastAPI dependencies
+│   └── main.py          # FastAPI app
+├── frontend/              # Next.js frontend
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── pages/        # Next.js pages
+│   │   ├── services/     # API client
+│   │   └── styles/       # CSS styles
+│   ├── package.json      # Node.js dependencies
+│   └── next.config.js    # Next.js configuration
+├── tests/                 # Test suite
+│   ├── unit/            # Unit tests
+│   ├── integration/     # Integration tests
+│   ├── contract/        # Contract tests
+│   └── api/             # API tests
+├── scripts/              # Utility scripts
+│   ├── run-fullstack.sh # Full-stack development server
+│   ├── run-api.sh       # API server only
+│   └── dev-regenerate.py # Site regeneration
+├── .github/workflows/
+│   └── daily-podcast.yml # GitHub Actions workflow
+├── static-site/          # Generated static site
+└── data/
+    ├── papers/          # Collected papers
+    └── podcasts/        # Generated podcasts
 ```
 
 ## License

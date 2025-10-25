@@ -16,6 +16,7 @@ from src.services.collector import PaperCollector
 from src.services.summarizer import Summarizer
 from src.services.tts import TTSConverter
 from src.services.uploader import GCSUploader
+from src.services.generator import StaticSiteGenerator
 from src.utils.config import config
 from src.utils.logger import setup_logger
 
@@ -43,6 +44,7 @@ class PodcastPipeline:
             bucket_name=config.gcs_bucket_name,
             credentials_path=config.google_credentials_path
         )
+        self.generator = StaticSiteGenerator(output_dir="static-site")
         
         self.podcast_id = datetime.now().strftime("%Y-%m-%d")
         self.logs: list[ProcessingLog] = []
@@ -84,6 +86,9 @@ class PodcastPipeline:
             
             # Step 5: Create podcast metadata
             podcast = self._create_podcast(papers_with_summaries, audio_path, audio_url)
+            
+            # Step 6: Generate static site with paper viewer
+            self._generate_static_site(podcast)
             
             # Save logs
             self._save_logs()
@@ -290,6 +295,52 @@ class PodcastPipeline:
         )
         
         return script
+    
+    def _generate_static_site(self, podcast: Podcast) -> None:
+        """Generate static website with paper viewer.
+        
+        Args:
+            podcast: Podcast to include in the site
+        """
+        log = ProcessingLog(
+            podcast_id=self.podcast_id,
+            step="generate_site",
+            status="started",
+            started_at=datetime.now(timezone.utc)
+        )
+        
+        try:
+            self.logger.info("Step 6/6: Generating static site with paper viewer...")
+            
+            # Load all existing podcasts
+            podcasts = [podcast]
+            
+            # Try to load previous podcasts from data directory
+            for podcast_file in config.podcasts_dir.glob("*.json"):
+                if podcast_file.stem != self.podcast_id:
+                    try:
+                        import json
+                        with open(podcast_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            existing_podcast = Podcast.from_dict(data)
+                            podcasts.append(existing_podcast)
+                    except Exception as e:
+                        self.logger.warning(f"Could not load podcast {podcast_file}: {e}")
+            
+            # Generate site
+            self.generator.generate_site(podcasts)
+            
+            log.mark_completed()
+            log.metadata = {"podcasts_count": len(podcasts)}
+            self.logs.append(log)
+            
+            self.logger.info(f"✓ Static site generated with {len(podcasts)} episodes")
+            
+        except Exception as e:
+            log.mark_failed(str(e))
+            self.logs.append(log)
+            self.logger.error(f"Static site generation failed: {e}")
+            # Don't raise - site generation is not critical
     
     def _save_logs(self):
         """Save processing logs."""

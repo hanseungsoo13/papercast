@@ -1,0 +1,26 @@
+{
+  "podcasts": [
+    {
+      "id": "2025-10-25",
+      "title": "Daily AI Papers - 2025-10-25",
+      "description": "오늘의 Hugging Face 트렌딩 논문 Top 3",
+      "created_at": "2025-10-25T07:43:20.817008+00:00",
+      "audio_url": "https://storage.googleapis.com/papers_ethan/2025-10-25/episode.mp3",
+      "duration": 503,
+      "paper_count": 3,
+      "episode_url": "episodes/2025-10-25.html"
+    },
+    {
+      "id": "2025-10-21",
+      "title": "Daily AI Papers - 2025-10-21",
+      "description": "오늘의 Hugging Face 트렌딩 논문 Top 3",
+      "created_at": "2025-10-20T16:07:59.488472+00:00",
+      "audio_url": "https://storage.googleapis.com/papers_ethan/2025-10-21/episode.mp3",
+      "duration": 147,
+      "paper_count": 3,
+      "episode_url": "episodes/2025-10-21.html"
+    }
+  ],
+  "generated_at": "2025-10-25T07:43:20.821641+00:00",
+  "total_episodes": 2
+}

@@ -16,6 +16,7 @@ from src.services.collector import PaperCollector
 from src.services.summarizer import Summarizer
 from src.services.tts import TTSConverter
 from src.services.uploader import GCSUploader
+from src.services.generator import StaticSiteGenerator
 
 
 class TestPipelineIntegration:
@@ -32,7 +33,7 @@ class TestPipelineIntegration:
                 abstract="We propose a novel approach to improve transformer efficiency...",
                 url="https://huggingface.co/papers/2401.12345",
                 upvotes=142,
-                collected_at=datetime.utcnow()
+                collected_at=datetime.now(datetime.timezone.utc)
             ),
             Paper(
                 id="2401.12346",
@@ -41,7 +42,7 @@ class TestPipelineIntegration:
                 abstract="This paper presents a scalable approach to neural architecture search...",
                 url="https://huggingface.co/papers/2401.12346",
                 upvotes=98,
-                collected_at=datetime.utcnow()
+                collected_at=datetime.now(datetime.timezone.utc)
             ),
             Paper(
                 id="2401.12347",
@@ -50,7 +51,7 @@ class TestPipelineIntegration:
                 abstract="We introduce a new self-supervised learning method for computer vision...",
                 url="https://huggingface.co/papers/2401.12347",
                 upvotes=156,
-                collected_at=datetime.utcnow()
+                collected_at=datetime.now(datetime.timezone.utc)
             )
         ]
     
@@ -231,7 +232,7 @@ class TestPipelineIntegration:
             id="2025-01-27",
             title="Daily AI Papers - January 27, 2025",
             description="오늘의 Hugging Face 트렌딩 논문 Top 3",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.timezone.utc),
             papers=papers,
             audio_file_path=audio_url,
             audio_duration=480,
@@ -301,7 +302,7 @@ class TestPipelineIntegration:
             id="2025-01-27",
             title="Test Podcast",
             description="Test Description",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.timezone.utc),
             papers=mock_papers,
             audio_file_path="https://storage.googleapis.com/test-bucket/2025-01-27/episode.mp3",
             audio_duration=480,
@@ -333,4 +334,172 @@ class TestPipelineIntegration:
         # Verify metadata upload
         assert "metadata.json" in metadata_url
         mock_blob.upload_from_string.assert_called_once()
+    
+    @pytest.mark.integration
+    def test_static_site_generation_pipeline(self, mock_papers, tmp_path):
+        """Test the static site generation pipeline integration."""
+        # Create enhanced mock papers with all fields
+        enhanced_papers = []
+        for i, paper in enumerate(mock_papers):
+            enhanced_paper = Paper(
+                id=paper.id,
+                title=paper.title,
+                authors=paper.authors,
+                abstract=paper.abstract,
+                url=paper.url,
+                published_date="2025-10-24",
+                upvotes=paper.upvotes,
+                collected_at=paper.collected_at,
+                arxiv_id=paper.id,
+                categories=["Machine Learning", "AI"],
+                thumbnail_url=f"https://example.com/thumb{i+1}.jpg",
+                embed_supported=i % 2 == 0,  # Alternate embed support
+                view_count=1000 + i * 100
+            )
+            enhanced_papers.append(enhanced_paper)
+        
+        # Create podcast with enhanced papers
+        podcast = Podcast(
+            id="2025-10-24",
+            title="Test Daily AI Papers - October 24, 2025",
+            description="Integration test podcast",
+            created_at=datetime.now(datetime.timezone.utc),
+            papers=enhanced_papers,
+            audio_file_path="https://storage.googleapis.com/test-bucket/2025-10-24/episode.mp3",
+            audio_duration=480,
+            audio_size=7680000,
+            status="completed"
+        )
+        
+        # Test static site generation
+        output_dir = tmp_path / "static-site"
+        generator = StaticSiteGenerator(output_dir=str(output_dir))
+        
+        # Generate the site
+        generator.generate_site([podcast])
+        
+        # Verify all files were created
+        assert (output_dir / "index.html").exists()
+        assert (output_dir / "episodes" / "2025-10-24.html").exists()
+        assert (output_dir / "assets" / "css" / "styles.css").exists()
+        assert (output_dir / "assets" / "js" / "script.js").exists()
+        assert (output_dir / "podcasts" / "index.json").exists()
+        
+        # Verify index.html content
+        index_content = (output_dir / "index.html").read_text(encoding='utf-8')
+        assert "PaperCast" in index_content
+        assert "Test Daily AI Papers - October 24, 2025" in index_content
+        assert "episodes/2025-10-24.html" in index_content
+        
+        # Verify episode page content
+        episode_content = (output_dir / "episodes" / "2025-10-24.html").read_text(encoding='utf-8')
+        assert "Test Daily AI Papers - October 24, 2025" in episode_content
+        assert "Integration test podcast" in episode_content
+        assert "https://storage.googleapis.com/test-bucket/2025-10-24/episode.mp3" in episode_content
+        
+        # Verify paper data is embedded
+        assert "const papersData = " in episode_content
+        assert "Efficient Transformers with Dynamic Attention" in episode_content
+        
+        # Verify CSS contains required styles
+        css_content = (output_dir / "assets" / "css" / "styles.css").read_text()
+        assert ".split-view" in css_content
+        assert ".paper-card" in css_content
+        assert ".audio-player" in css_content
+        
+        # Verify JavaScript contains required functions
+        js_content = (output_dir / "assets" / "js" / "script.js").read_text()
+        assert "function toggleSplitView" in js_content
+        assert "function showPaperViewer" in js_content
+        
+        # Verify podcast index JSON
+        index_json = json.loads((output_dir / "podcasts" / "index.json").read_text())
+        assert "podcasts" in index_json
+        assert len(index_json["podcasts"]) == 1
+        assert index_json["podcasts"][0]["id"] == "2025-10-24"
+        assert index_json["podcasts"][0]["paper_count"] == 3
+    
+    @pytest.mark.integration
+    def test_full_pipeline_with_site_generation(self, mock_papers, tmp_path):
+        """Test the complete pipeline including static site generation."""
+        # Mock all external services
+        with patch('src.services.collector.requests.get') as mock_get, \
+             patch('src.services.summarizer.genai.GenerativeModel') as mock_model, \
+             patch('src.services.tts.texttospeech.TextToSpeechClient') as mock_tts_client, \
+             patch('src.services.uploader.storage.Client') as mock_storage_client:
+            
+            # Setup collector mock
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.text = """
+            <html><body>
+                <article>
+                    <h3><a href="/papers/2401.12345">Efficient Transformers</a></h3>
+                    <div class="authors">John Doe</div>
+                    <div class="abstract">Test abstract</div>
+                    <div class="upvotes">142 upvotes</div>
+                </article>
+            </body></html>
+            """
+            mock_get.return_value = mock_response
+            
+            # Setup summarizer mock
+            mock_model_instance = Mock()
+            mock_model_instance.generate_content.return_value.text = "Test summary"
+            mock_model.return_value = mock_model_instance
+            
+            # Setup TTS mock
+            mock_tts_instance = Mock()
+            mock_tts_instance.synthesize_speech.return_value.audio_content = b"fake audio data"
+            mock_tts_client.return_value = mock_tts_instance
+            
+            # Setup GCS mock
+            mock_client_instance = Mock()
+            mock_bucket = Mock()
+            mock_blob = Mock()
+            mock_blob.public_url = "https://storage.googleapis.com/test/audio.mp3"
+            mock_bucket.blob.return_value = mock_blob
+            mock_client_instance.bucket.return_value = mock_bucket
+            mock_storage_client.return_value = mock_client_instance
+            
+            # Initialize services
+            collector = PaperCollector()
+            summarizer = Summarizer(api_key="test-key")
+            tts = TTSConverter(credentials_path="test-creds.json")
+            uploader = GCSUploader(bucket_name="test-bucket")
+            generator = StaticSiteGenerator(output_dir=str(tmp_path / "site"))
+            
+            # Run pipeline steps
+            papers = collector.fetch_papers(count=1)
+            assert len(papers) == 1
+            
+            # Add summaries
+            for paper in papers:
+                paper.summary = summarizer.summarize_paper(paper)
+            
+            # Create podcast
+            podcast = Podcast(
+                id="2025-10-24",
+                title="Test Pipeline Podcast",
+                description="Full pipeline test",
+                created_at=datetime.now(datetime.timezone.utc),
+                papers=papers,
+                audio_file_path="https://storage.googleapis.com/test/audio.mp3",
+                audio_duration=300,
+                audio_size=5000000,
+                status="completed"
+            )
+            
+            # Generate static site
+            generator.generate_site([podcast])
+            
+            # Verify site was generated
+            site_dir = tmp_path / "site"
+            assert (site_dir / "index.html").exists()
+            assert (site_dir / "episodes" / "2025-10-24.html").exists()
+            
+            # Verify content integration
+            episode_content = (site_dir / "episodes" / "2025-10-24.html").read_text()
+            assert "Test Pipeline Podcast" in episode_content
+            assert "Test summary" in episode_content
 

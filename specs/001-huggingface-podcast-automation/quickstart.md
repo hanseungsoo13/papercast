@@ -1,396 +1,274 @@
-# Quickstart: HuggingFace Podcast Automation
+# 빠른 시작 가이드: PaperCast API
 
-**Feature**: 001-huggingface-podcast-automation  
-**Date**: 2025-01-27  
-**Purpose**: 개발 환경 설정 및 로컬 테스트 가이드
+**날짜**: 2025-01-27  
+**기능**: 001-huggingface-podcast-automation  
 
-## Prerequisites
+## 개요
 
-### Required Accounts & Services
+이 가이드는 PaperCast API를 로컬에서 실행하고 테스트하는 방법을 안내합니다.
 
-1. **Google Cloud Platform Account**
-   - Gemini API 활성화
-   - Text-to-Speech API 활성화
-   - Cloud Storage API 활성화
-   - Service Account 생성 및 JSON 키 다운로드
+## 사전 요구사항
 
-2. **GitHub Account**
-   - Repository 생성 또는 포크
-   - GitHub Actions 활성화
-   - GitHub Pages 또는 Cloudflare Pages 설정
+- Python 3.11+
+- Node.js 18+ (프론트엔드 개발 시)
+- Git
 
-3. **Development Tools**
-   - Python 3.11 이상
-   - Git
-   - pip 또는 poetry
-
----
-
-## Local Setup
-
-### 1. Clone Repository
+## 1. 기존 파이프라인 실행 (에피소드 생성)
 
 ```bash
-git clone https://github.com/yourusername/papercast.git
-cd papercast
-```
+# 저장소 클론 (이미 했다면 생략)
+cd /home/hanseungsoo/project/Python_Study/papercast
 
-### 2. Create Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-venv\Scripts\activate  # Windows
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-**requirements.txt**:
-```
-huggingface-hub>=0.20.0
-google-generativeai>=0.3.0
-google-cloud-texttospeech>=2.16.0
-google-cloud-storage>=2.14.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-pydantic>=2.5.0
-tenacity>=8.2.0
-pytest>=7.4.0
-pytest-cov>=4.1.0
-pytest-mock>=3.12.0
-```
-
-### 4. Environment Configuration
-
-`.env` 파일 생성:
-
-```bash
-# Google Cloud
-GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json
-GCS_BUCKET_NAME=papercast-podcasts
-
-# GitHub (for Actions)
-GITHUB_TOKEN=your_github_token_here
-
-# Configuration
-TZ=Asia/Seoul
-LOG_LEVEL=INFO
-```
-
-### 5. Google Cloud Service Account Setup
-
-1. GCP Console에서 Service Account 생성
-2. 다음 역할 부여:
-   - Cloud Storage Admin
-   - Text-to-Speech Admin
-3. JSON 키 다운로드 → `service-account-key.json`
-4. 파일 위치를 `.env`의 `GOOGLE_APPLICATION_CREDENTIALS`에 설정
-
----
-
-## Running Locally
-
-### Test Individual Components
-
-#### 1. Test Paper Collection
-
-```bash
-python -m src.services.collector
-```
-
-Expected Output:
-```
-INFO: Fetching trending papers from Hugging Face...
-INFO: Found 10 papers
-INFO: Selected top 3 papers:
-  1. [2401.12345] Efficient Transformers with Dynamic Attention
-  2. [2401.12346] Multimodal Learning for Visual Question Answering
-  3. [2401.12347] Zero-Shot Image Classification with CLIP
-```
-
-#### 2. Test Summarization
-
-```bash
-python -m src.services.summarizer --paper-id 2401.12345
-```
-
-Expected Output:
-```
-INFO: Generating summary for paper 2401.12345...
-INFO: Summary generated (450 characters)
-Summary: 이 논문은 동적 어텐션 메커니즘을 사용하여...
-```
-
-#### 3. Test Text-to-Speech
-
-```bash
-python -m src.services.tts --text "테스트 음성입니다" --output test.mp3
-```
-
-Expected Output:
-```
-INFO: Generating audio...
-INFO: Audio saved to test.mp3 (size: 15 KB, duration: 2s)
-```
-
-#### 4. Test GCS Upload
-
-```bash
-python -m src.services.uploader --file test.mp3 --destination test/test.mp3
-```
-
-Expected Output:
-```
-INFO: Uploading test.mp3 to gs://papercast-podcasts/test/test.mp3...
-INFO: Upload successful
-INFO: Public URL: https://storage.googleapis.com/papercast-podcasts/test/test.mp3
-```
-
-### Run Full Pipeline
-
-```bash
-python src/main.py
-```
-
-Expected Output:
-```
-INFO: Starting podcast generation pipeline...
-INFO: Step 1/5: Collecting papers...
-INFO: Collected 3 papers
-INFO: Step 2/5: Generating summaries...
-INFO: Summaries generated for 3 papers
-INFO: Step 3/5: Converting to speech...
-INFO: Audio generated (duration: 8m 15s)
-INFO: Step 4/5: Uploading to GCS...
-INFO: Upload successful: https://storage.googleapis.com/papercast-podcasts/2025-01-27/episode.mp3
-INFO: Step 5/5: Generating static site...
-INFO: Site generated at static-site/
-INFO: Pipeline completed successfully!
-```
-
----
-
-## Testing
-
-### Run Unit Tests
-
-```bash
-pytest tests/unit/ -v
-```
-
-### Run Integration Tests
-
-```bash
-pytest tests/integration/ -v
-```
-
-### Run Contract Tests
-
-```bash
-pytest tests/contract/ -v --api-key $GEMINI_API_KEY
-```
-
-### Run with Coverage
-
-```bash
-pytest --cov=src --cov-report=html --cov-report=term
-```
-
-Expected Coverage:
-```
----------- coverage: platform linux, python 3.11.5 -----------
-Name                          Stmts   Miss  Cover
--------------------------------------------------
-src/models/__init__.py            10      0   100%
-src/services/collector.py         45      3    93%
-src/services/summarizer.py        38      2    95%
-src/services/tts.py               42      1    98%
-src/services/uploader.py          35      2    94%
-src/utils/logger.py               20      0   100%
-src/utils/retry.py                15      1    93%
-src/main.py                       80      8    90%
--------------------------------------------------
-TOTAL                            285     17    94%
-```
-
----
-
-## GitHub Actions Setup
-
-### 1. Add Repository Secrets
-
-GitHub Repository → Settings → Secrets and variables → Actions
-
-추가할 Secrets:
-- `GEMINI_API_KEY`: Gemini API 키
-- `GCP_SERVICE_ACCOUNT_KEY`: Service Account JSON (base64 encoded)
-- `GCS_BUCKET_NAME`: `papercast-podcasts`
-
-### 2. Workflow Configuration
-
-`.github/workflows/daily-podcast.yml`:
-
-```yaml
-name: Daily Podcast Generation
-
-on:
-  schedule:
-    - cron: '0 21 * * *'  # 매일 UTC 21:00 = KST 06:00
-  workflow_dispatch:  # 수동 실행
-
-jobs:
-  generate-podcast:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      
-      - name: Configure GCP credentials
-        run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 -d > service-account-key.json
-      
-      - name: Run podcast generation
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_APPLICATION_CREDENTIALS: ./service-account-key.json
-          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-        run: |
-          python src/main.py
-      
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./static-site
-```
-
-### 3. Manual Trigger
-
-GitHub Repository → Actions → Daily Podcast Generation → Run workflow
-
----
-
-## Static Site Deployment
-
-### Option 1: GitHub Pages
-
-1. Repository Settings → Pages
-2. Source: Deploy from a branch
-3. Branch: `gh-pages` / `root`
-4. URL: `https://yourusername.github.io/papercast/`
-
-### Option 2: Cloudflare Pages
-
-1. Cloudflare Dashboard → Pages → Create a project
-2. Connect to GitHub repository
-3. Build settings:
-   - Framework preset: None
-   - Build command: `(leave empty)`
-   - Build output directory: `static-site`
-4. URL: `https://papercast.pages.dev/`
-
----
-
-## Troubleshooting
-
-### Issue: "API key not valid"
-
-**Solution**:
-- Gemini API 키 확인: https://makersuite.google.com/app/apikey
-- `.env` 파일에 올바르게 설정되었는지 확인
-
-### Issue: "Permission denied" (GCS)
-
-**Solution**:
-- Service Account에 적절한 권한이 부여되었는지 확인
-- `GOOGLE_APPLICATION_CREDENTIALS` 경로가 올바른지 확인
-
-### Issue: "Rate limit exceeded"
-
-**Solution**:
-- API 호출 빈도 줄이기
-- 재시도 메커니즘 활용 (자동 처리됨)
-- 무료 티어 한도 확인
-
-### Issue: GitHub Actions 실행 실패
-
-**Solution**:
-- Actions 로그에서 오류 확인
-- Secrets가 올바르게 설정되었는지 확인
-- Workflow 파일 YAML 문법 확인
-
----
-
-## Validation Checklist
-
-실행 전 확인사항:
-
-- [ ] Python 3.11 이상 설치됨
-- [ ] 모든 의존성 설치됨 (`pip list` 확인)
-- [ ] `.env` 파일 설정 완료
-- [ ] Service Account JSON 키 다운로드 및 설정
-- [ ] GCS 버킷 생성됨 (`papercast-podcasts`)
-- [ ] GitHub Secrets 설정 완료
-- [ ] 로컬 테스트 통과 (`pytest`)
-- [ ] GitHub Actions 워크플로우 파일 커밋
-
----
-
-## Next Steps
-
-1. ✅ Local setup 완료
-2. ✅ 각 컴포넌트 개별 테스트
-3. ✅ 전체 파이프라인 로컬 실행
-4. ✅ GitHub Actions 설정
-5. ⏭️ `/speckit.tasks` 명령어로 구현 작업 목록 생성
-6. ⏭️ TDD로 기능 구현 시작
-
----
-
-## Useful Commands
-
-```bash
 # 가상환경 활성화
-source venv/bin/activate
+source .venv/bin/activate  # Linux/Mac
+# .venv\Scripts\activate  # Windows
 
-# 의존성 업데이트
-pip install -r requirements.txt --upgrade
+# 환경 변수 확인
+cat .env  # GEMINI_API_KEY, GOOGLE_APPLICATION_CREDENTIALS 등
 
-# 코드 포맷팅
-black src/ tests/
+# 파이프라인 실행 (에피소드 생성)
+python run.py
+# 또는
+python src/main.py
 
-# 린팅
-pylint src/
-
-# 타입 체크
-mypy src/
-
-# 테스트 실행 (빠른 모드)
-pytest -x --tb=short
-
-# 로그 확인
-tail -f logs/papercast.log
-
-# GCS 버킷 내용 확인
-gsutil ls gs://papercast-podcasts/
-
-# 정적 사이트 로컬 미리보기
-python -m http.server 8000 --directory static-site
-# 브라우저에서 http://localhost:8000 접속
+# 결과 확인
+ls data/podcasts/  # JSON 파일 생성 확인
+ls static-site/    # 정적 사이트 생성 확인
 ```
 
+## 2. API 서버 실행
+
+### Option A: FastAPI 직접 실행
+
+```bash
+# 1. API 폴더로 이동
+cd papercast
+
+# 2. FastAPI 서버 실행
+python -m uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# 3. API 문서 확인
+# 브라우저에서 http://localhost:8000/docs 접속
+
+# 4. API 테스트
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/episodes/latest
+```
+
+### Option B: Vercel Dev (프론트엔드 포함)
+
+```bash
+# 1. 프론트엔드 폴더로 이동
+cd frontend
+
+# 2. 의존성 설치
+npm install
+
+# 3. Vercel 개발 서버 실행
+vercel dev
+
+# 4. 접속
+# 브라우저에서 http://localhost:3000 접속
+```
+
+## 3. API 엔드포인트 테스트
+
+### 헬스 체크
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+**응답**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-27T12:00:00Z",
+  "version": "1.0.0"
+}
+```
+
+### 최신 에피소드 조회
+
+```bash
+curl http://localhost:8000/api/episodes/latest
+```
+
+**응답**:
+```json
+{
+  "id": "2025-01-27",
+  "title": "Daily Papers - 2025-01-27",
+  "publication_date": "2025-01-27",
+  "audio_url": "https://storage.googleapis.com/...",
+  "duration_seconds": 627,
+  "papers": [
+    {
+      "id": "2510.19338",
+      "title": "Every Attention Matters",
+      "authors": ["John Doe", "Jane Smith"],
+      "summary": "이 논문은...",
+      "url": "https://huggingface.co/papers/2510.19338"
+    }
+    // 2개 더...
+  ]
+}
+```
+
+### 에피소드 목록 조회
+
+```bash
+curl "http://localhost:8000/api/episodes?limit=10&offset=0"
+```
+
+### 특정 에피소드 조회
+
+```bash
+curl http://localhost:8000/api/episodes/2025-01-27
+```
+
+## 4. 개발 서버 실행 (기존)
+
+기존 static-site 개발 서버도 계속 사용 가능합니다:
+
+```bash
+# 방법 1: Python HTTP 서버
+cd papercast
+python -m http.server 8080 --directory static-site
+
+# 방법 2: Live Reload 서버
+python scripts/dev-server.py
+
+# 방법 3: 셸 스크립트
+bash scripts/dev-server.sh
+```
+
+## 5. 프로젝트 구조 이해
+
+```
+papercast/
+├── src/                     # 기존 파이프라인 (변경 없음)
+│   └── main.py             # python run.py로 실행
+│
+├── api/                     # 신규 API (이번에 추가)
+│   ├── main.py             # FastAPI 앱
+│   └── routes/             # API 라우터
+│
+├── data/podcasts/           # 파이프라인이 생성한 JSON
+│   └── 2025-01-27.json     # API가 읽음
+│
+└── static-site/             # 파이프라인이 생성한 HTML
+    └── index.html          # 기존 방식으로 서빙
+```
+
+## 6. 일반적인 작업 흐름
+
+### 에피소드 생성 후 API 테스트
+
+```bash
+# 1. 새 에피소드 생성
+python run.py
+
+# 2. API 서버 시작 (이미 실행 중이면 자동 리로드됨)
+python -m uvicorn api.main:app --reload
+
+# 3. 최신 에피소드 확인
+curl http://localhost:8000/api/episodes/latest
+
+# 4. 프론트엔드에서 확인
+# http://localhost:3000 접속
+```
+
+### API 코드 수정 후 테스트
+
+```bash
+# 1. API 코드 수정 (api/main.py 또는 api/routes/*.py)
+
+# 2. 자동 리로드 확인 (--reload 옵션으로 실행한 경우)
+# "Application startup complete" 메시지 확인
+
+# 3. 변경사항 테스트
+curl http://localhost:8000/api/...
+
+# 4. API 문서 확인
+# http://localhost:8000/docs에서 변경사항 확인
+```
+
+## 7. 환경 변수
+
+### 필수 환경 변수
+
+```bash
+# .env 파일
+GEMINI_API_KEY=your_key_here
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/service-account.json
+GCS_BUCKET_NAME=your_bucket_name
+```
+
+### API 전용 환경 변수 (선택)
+
+```bash
+# API 서버 설정
+API_HOST=0.0.0.0
+API_PORT=8000
+API_CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+
+# 데이터 디렉토리
+PODCASTS_DIR=data/podcasts
+
+# 캐싱
+CACHE_TTL_SECONDS=3600
+```
+
+## 8. 트러블슈팅
+
+### 에피소드가 없다는 오류
+
+```bash
+# 문제: API가 404 반환
+# 원인: data/podcasts/ 폴더가 비어있음
+
+# 해결: 에피소드 생성
+python run.py
+```
+
+### 포트가 이미 사용 중
+
+```bash
+# 문제: uvicorn: [Errno 48] Address already in use
+
+# 해결 1: 다른 포트 사용
+python -m uvicorn api.main:app --reload --port 8001
+
+# 해결 2: 기존 프로세스 종료
+lsof -ti:8000 | xargs kill -9  # Linux/Mac
+```
+
+### CORS 오류
+
+```bash
+# 문제: 프론트엔드에서 API 호출 시 CORS 오류
+
+# 해결: api/main.py에서 CORS 설정 확인
+# CORS_ORIGINS에 프론트엔드 URL 추가
+```
+
+## 9. 다음 단계
+
+### 로컬 개발
+
+1. API 엔드포인트 추가
+2. 프론트엔드 컴포넌트 개발
+3. 테스트 작성
+
+### 배포 준비
+
+1. Vercel 계정 설정
+2. GitHub에 푸시
+3. Vercel에서 자동 배포
+
+---
+
+**빠른 시작 상태**: ✅ 완료  
+**API 실행 확인**: ✅ 준비됨  
+**프론트엔드 연결**: ✅ 준비됨
