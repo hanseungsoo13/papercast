@@ -29,51 +29,13 @@ export default function EpisodeDetail() {
         setLoading(true);
         setError(null);
         
-        // For now, we'll use mock data since we don't have a specific episode endpoint
-        // In a real app, you'd call: const episode = await apiService.getEpisode(id as string);
+        console.log('에피소드 상세 정보 요청:', id);
         
-        // Mock episode data
-        const mockEpisode: EpisodeWithPapers = {
-          id: id as string,
-          title: `Daily AI Papers - ${id}`,
-          publication_date: id as string,
-          audio_url: 'https://storage.googleapis.com/papers_ethan/2025-10-21/episode.mp3',
-          papers_count: 3,
-          created_at: '2025-10-20T16:07:59.488472+00:00',
-          duration_seconds: 1800, // 30 minutes
-          file_size_bytes: 15728640, // 15MB
-          papers: [
-            {
-              id: '2510.19338',
-              title: 'Every Attention Matters: A Novel Attention Mechanism for Deep Learning',
-              authors: ['John Doe', 'Jane Smith', 'Bob Johnson'],
-              url: 'https://huggingface.co/papers/2510.19338',
-              upvotes: 142,
-              collected_at: '2025-10-20T16:07:59.488472+00:00',
-              summary: 'This paper introduces a novel attention mechanism that improves the performance of transformer models by considering every attention head in the network.'
-            },
-            {
-              id: '2510.19339',
-              title: 'Neural Architecture Search for Efficient Models',
-              authors: ['Alice Brown', 'Charlie Wilson'],
-              url: 'https://huggingface.co/papers/2510.19339',
-              upvotes: 89,
-              collected_at: '2025-10-20T16:07:59.488472+00:00',
-              summary: 'We present a new approach to neural architecture search that finds more efficient models with better performance.'
-            },
-            {
-              id: '2510.19340',
-              title: 'Multi-Modal Learning with Vision and Language',
-              authors: ['David Lee', 'Emma Davis', 'Frank Miller'],
-              url: 'https://huggingface.co/papers/2510.19340',
-              upvotes: 156,
-              collected_at: '2025-10-20T16:07:59.488472+00:00',
-              summary: 'This work explores how to effectively combine vision and language models for better understanding of visual content.'
-            }
-          ]
-        };
+        // 실제 API에서 에피소드 데이터 가져오기
+        const episode = await apiService.getEpisode(id as string);
+        console.log('에피소드 데이터 받음:', episode);
         
-        setEpisode(mockEpisode);
+        setEpisode(episode);
       } catch (err) {
         console.error('Error fetching episode:', err);
         const apiError = err as ApiError;
@@ -216,7 +178,11 @@ export default function EpisodeDetail() {
               {episode.papers.map((paper, index) => (
                 <div
                   key={paper.id}
-                  className="paper-item hover:border-blue-300 hover:shadow-lg transition-all duration-200"
+                  onClick={() => {
+                    console.log('논문 카드 클릭됨:', paper.id);
+                    window.location.href = `/papers/${paper.id}`;
+                  }}
+                  className="paper-item hover:border-blue-300 hover:shadow-lg transition-all duration-200 cursor-pointer"
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
@@ -253,12 +219,23 @@ export default function EpisodeDetail() {
                           href={paper.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('원문 보기 링크 클릭됨:', paper.url);
+                          }}
                           className="btn-primary flex items-center space-x-2"
                         >
                           <ExternalLink className="w-4 h-4" />
                           <span>논문 원문 보기</span>
                         </a>
-                        <button className="btn-secondary flex items-center space-x-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('논평 보기 버튼 클릭됨:', paper.id);
+                            alert('논평 기능은 곧 추가될 예정입니다!');
+                          }}
+                          className="btn-secondary flex items-center space-x-2"
+                        >
                           <MessageCircle className="w-4 h-4" />
                           <span>논평 보기</span>
                         </button>
