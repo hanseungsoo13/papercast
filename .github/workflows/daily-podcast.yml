@@ -186,7 +186,14 @@ jobs:
         with:
           status: success
           channel: '#papercast'
-          text: '🎉 Daily Paper Cast episode generated successfully!'
+          text: |
+            🎉 오늘의 AI 논문 팟캐스트가 완성되었습니다!
+            
+            📅 날짜: $(date +%Y-%m-%d)
+            🎧 지금 바로 들어보세요: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}
+            📖 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
+            
+            새로운 논문들이 기다리고 있습니다! 🚀
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
@@ -196,6 +203,13 @@ jobs:
         with:
           status: failure
           channel: '#papercast'
-          text: '❌ Daily Paper Cast episode generation failed!'
+          text: |
+            ❌ 오늘의 AI 논문 팟캐스트 생성에 실패했습니다!
+            
+            📅 날짜: $(date +%Y-%m-%d)
+            🔍 GitHub Actions 로그를 확인해주세요
+            📖 기존 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
+            
+            문제를 해결한 후 다시 시도해주세요! 🛠️
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

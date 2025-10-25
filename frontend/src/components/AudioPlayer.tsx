@@ -88,15 +88,15 @@ export default function AudioPlayer({ src, title }: AudioPlayerProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
+    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
       <audio ref={audioRef} src={src} preload="metadata" />
       
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-6">
         <button
           onClick={togglePlay}
-          className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+          className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-lg transform hover:scale-105 transition-all duration-200"
         >
-          {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+          {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7" />}
         </button>
 
         <div className="flex-1">
