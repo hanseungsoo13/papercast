@@ -2,15 +2,20 @@ name: Daily Podcast Generation
 
 on:
   schedule:
-    # Runs every day at 21:00 UTC (06:00 KST next day)
+    # Run every day at 6:00 AM KST (21:00 UTC)
     - cron: '0 21 * * *'
-  
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
     inputs:
-      debug:
-        description: 'Enable debug logging'
+      test_mode:
+        description: 'Run in test mode (use mock data)'
         required: false
         default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  TZ: 'Asia/Seoul'
 
 jobs:
   generate-podcast:
@@ -20,89 +25,191 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
-      
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          version: "latest"
-      
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          uv pip install -r requirements.txt
+
+      - name: Install Node.js dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Set up Google Cloud credentials
+        env:
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        run: |
+          mkdir -p backend/credentials
+          echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > backend/credentials/service-account.json
+
+      - name: Set up PostgreSQL
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "CREATE DATABASE papercast_test;"
+          sudo -u postgres psql -c "CREATE USER papercast_user WITH PASSWORD 'test_password';"
+          sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE papercast_test TO papercast_user;"
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
+        run: |
+          cd backend
+          alembic upgrade head
+
+      - name: Generate podcast episode
+        env:
+          # Database
+          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
+          
+          # Google Cloud
+          GOOGLE_APPLICATION_CREDENTIALS: ./credentials/service-account.json
+          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+          
+          # AI Services
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          
+          # Test mode
+          TEST_MODE: ${{ inputs.test_mode || 'false' }}
+        run: |
+          cd backend
+          python scripts/generate_episode.py
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
+        run: |
+          cd backend
+          pytest tests/ -v --cov=src --cov-report=xml
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  deploy-backend:
+    needs: generate-podcast
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build and push backend image
+        run: |
+          cd backend
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }} .
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy papercast-backend \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }} \
+            --platform managed \
+            --region asia-northeast3 \
+            --allow-unauthenticated \
+            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
+
+  deploy-frontend:
+    needs: generate-podcast
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Install dependencies
         run: |
-          uv sync --frozen
-      
-      - name: Configure GCP credentials
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.FRONTEND_API_URL }}
         run: |
-          echo "${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" | base64 --decode > service-account-key.json
-          # Verify the JSON is valid
-          if ! python3 -m json.tool service-account-key.json > /dev/null 2>&1; then
-            echo "Error: Invalid JSON in service-account-key.json"
-            cat service-account-key.json
-            exit 1
-          fi
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/service-account-key.json" >> $GITHUB_ENV
-      
-      - name: Set environment variables
-        run: |
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
-          echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
-          echo "TZ=Asia/Seoul" >> $GITHUB_ENV
-          echo "LOG_LEVEL=INFO" >> $GITHUB_ENV
-      
-      - name: Run podcast generation
-        id: generate
-        run: |
-          uv run python src/main.py
-        continue-on-error: true
-      
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
+          cd frontend
+          npm run build
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
         with:
-          name: pipeline-logs
-          path: data/logs/*.log
-          retention-days: 7
-      
-      - name: Notify Slack on failure
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+
+  notify-success:
+    needs: [generate-podcast, deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    if: always() && (needs.generate-podcast.result == 'success')
+    
+    steps:
+      - name: Notify Slack
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#papercast'
+          text: |
+            🎉 오늘의 AI 논문 팟캐스트가 완성되었습니다!
+            
+            📅 날짜: $(date +%Y-%m-%d)
+            🎧 지금 바로 들어보세요: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}
+            📖 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
+            
+            새로운 논문들이 기다리고 있습니다! 🚀
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack (Failure)
         if: failure()
-        continue-on-error: true
-        run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-              -H 'Content-type: application/json' \
-              --data '{
-                "text": "🚨 *PaperCast 생성 실패*\n• 날짜: $(date +%Y-%m-%d)\n• 시간: $(date +%H:%M:%S KST)\n• 로그를 확인해주세요."
-              }'
-          fi
-      
-      - name: Notify Slack on success
-        if: success()
-        continue-on-error: true
-        run: |
-          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
-            PODCAST_DATE=$(date +%Y-%m-%d)
-            PODCAST_URL="https://storage.googleapis.com/${{ secrets.GCS_BUCKET_NAME }}/${PODCAST_DATE}/episode.mp3"
-            curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
-              -H 'Content-type: application/json' \
-              --data "{
-                \"text\": \"✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +%H:%M:%S KST)\n• <${PODCAST_URL}|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!\"
-              }"
-          fi
-      
-      - name: Clean up credentials
-        if: always()
-        run: |
-          rm -f service-account-key.json
-      
-      - name: Report success
-        if: success()
-        run: |
-          echo "::notice::Podcast generated successfully!"
-          PODCAST_ID=$(date +%Y-%m-%d)
-          echo "Podcast ID: $PODCAST_ID"
-
-
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#papercast'
+          text: |
+            ❌ 오늘의 AI 논문 팟캐스트 생성에 실패했습니다!
+            
+            📅 날짜: $(date +%Y-%m-%d)
+            🔍 GitHub Actions 로그를 확인해주세요
+            📖 기존 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
+            
+            문제를 해결한 후 다시 시도해주세요! 🛠️
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

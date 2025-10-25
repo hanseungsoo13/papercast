@@ -83,3 +83,38 @@ Thumbs.db
 static-site/podcasts/*.json
 !static-site/podcasts/index.json
 
+# Deployment
+gh-pages/
+.deploy/
+
+# Backup files
+*-backup/
+*.backup
+
+# Development cache
+.cache/
+cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
