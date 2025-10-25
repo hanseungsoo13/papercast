@@ -6,13 +6,16 @@
 
 - 🤖 **자동 수집**: 매일 아침 6시(KST) Hugging Face 트렌딩 논문 Top 3 자동 수집
 - 📝 **AI 요약**: Google Gemini Pro를 사용한 한국어 요약 생성
+- 📄 **3줄 요약**: 각 논문별 핵심 내용을 3줄로 간단 요약
 - 🎙️ **TTS 변환**: Google Cloud Text-to-Speech로 고품질 음성 생성
 - ☁️ **클라우드 저장**: Google Cloud Storage에 MP3 파일 업로드
 - 🌐 **풀스택 웹 플랫폼**: FastAPI 백엔드 + Next.js 프론트엔드
 - 📱 **반응형 UI**: 모바일/데스크톱 최적화된 사용자 인터페이스
 - 🎵 **고급 오디오 플레이어**: 재생/일시정지, 볼륨 조절, 구간 이동
 - 📄 **논문 뷰어**: ArXiv PDF 직접 링크 및 임베드 지원
+- 🔗 **스마트 링크**: 논문 상세 페이지, 원문 링크, 에피소드 네비게이션
 - 🔄 **완전 자동화**: GitHub Actions를 통한 무인 운영
+- 📢 **Slack 알림**: 성공/실패 알림 및 웹페이지 링크 포함
 
 ## Quick Start
 
@@ -351,4 +354,3 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 - [Data Model](specs/001-huggingface-podcast-automation/data-model.md)
 - [Quickstart Guide](specs/001-huggingface-podcast-automation/quickstart.md)
 - [Task List](specs/001-huggingface-podcast-automation/tasks.md)
-
