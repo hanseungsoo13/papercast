@@ -12,6 +12,7 @@ from datetime import datetime
 
 from api.routes.health import router as health_router
 from api.routes.episodes import router as episodes_router
+from api.routes.papers import router as papers_router
 from api.schemas import HealthResponse, ErrorResponse
 
 
@@ -42,6 +43,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(health_router, prefix="/api", tags=["System"])
 app.include_router(episodes_router, prefix="/api", tags=["Episodes"])
+app.include_router(papers_router, prefix="/api", tags=["Papers"])
 
 
 @app.exception_handler(HTTPException)

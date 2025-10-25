@@ -111,12 +111,8 @@ class PaperCollector:
                 if '/papers/' in href:
                     paper_id = href.split('/papers/')[-1]
         
-        # 저자 추출
-        authors = []
-        authors_div = article.find('div', class_=lambda x: x and 'author' in x.lower()) if article else None
-        if authors_div:
-            author_links = authors_div.find_all('a')
-            authors = [a.get_text(strip=True) for a in author_links if a.get_text(strip=True)]
+        # 개별 논문 페이지에서 상세 정보 가져오기
+        authors, published_date = self._fetch_paper_details(paper_url) if paper_url else ([], None)
         
         if not authors:
             authors = ["Unknown"]
@@ -184,7 +180,7 @@ class PaperCollector:
             authors=authors,
             abstract=abstract,
             url=paper_url,
-            published_date=date_str,
+            published_date=published_date or date_str,
             upvotes=upvotes,
             collected_at=datetime.utcnow(),
             arxiv_id=arxiv_id,
@@ -193,6 +189,71 @@ class PaperCollector:
             embed_supported=embed_supported,
             view_count=view_count
         )
+    
+    def _fetch_paper_details(self, paper_url: str) -> tuple[List[str], str]:
+        """Fetch detailed paper information from individual paper page.
+        
+        Args:
+            paper_url: URL of the individual paper page
+            
+        Returns:
+            Tuple of (authors_list, published_date)
+        """
+        try:
+            self.logger.debug(f"Fetching details from {paper_url}")
+            response = requests.get(paper_url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 저자 정보 추출
+            authors = []
+            
+            # Authors 섹션 찾기
+            authors_section = soup.find('div', string=lambda text: text and 'Authors:' in text)
+            if authors_section:
+                # Authors: 다음에 오는 저자들 찾기
+                parent = authors_section.parent if authors_section.parent else authors_section
+                author_links = parent.find_all('a', href=True)
+                authors = [link.get_text(strip=True) for link in author_links if link.get_text(strip=True)]
+            
+            # 대안: 저자 링크들을 직접 찾기
+            if not authors:
+                author_links = soup.find_all('a', href=lambda x: x and '/user/' in x)
+                authors = [link.get_text(strip=True) for link in author_links if link.get_text(strip=True)]
+            
+            # 발행일 추출
+            published_date = None
+            
+            # Published on 날짜 찾기
+            published_elem = soup.find('div', string=lambda text: text and 'Published on' in text)
+            if published_elem:
+                # Published on 다음에 오는 날짜 찾기
+                parent = published_elem.parent if published_elem.parent else published_elem
+                date_text = parent.get_text(strip=True)
+                # "Published on Oct 22" 형태에서 날짜 추출
+                import re
+                date_match = re.search(r'Published on (\w+ \d+)', date_text)
+                if date_match:
+                    published_date = date_match.group(1)
+            
+            # 대안: 메타데이터에서 날짜 찾기
+            if not published_date:
+                meta_date = soup.find('meta', {'property': 'article:published_time'})
+                if meta_date and meta_date.get('content'):
+                    from datetime import datetime
+                    try:
+                        dt = datetime.fromisoformat(meta_date['content'].replace('Z', '+00:00'))
+                        published_date = dt.strftime('%Y-%m-%d')
+                    except:
+                        pass
+            
+            self.logger.debug(f"Found {len(authors)} authors and published_date: {published_date}")
+            return authors, published_date
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch paper details from {paper_url}: {e}")
+            return [], None
     
     def _check_embed_support(self, url: str) -> bool:
         """Check if a paper URL supports iframe embedding.

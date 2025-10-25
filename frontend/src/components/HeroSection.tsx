@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import Link from 'next/link';
 import { Play, Download, Share2 } from 'lucide-react';
 
 interface HeroSectionProps {
@@ -49,15 +50,36 @@ export default function HeroSection({ title, description, features }: HeroSectio
           
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="btn-primary flex items-center space-x-2">
+            <Link href="/archive" className="btn-primary flex items-center space-x-2">
               <Play className="w-5 h-5" />
               <span>지금 듣기</span>
-            </button>
-            <button className="btn-secondary flex items-center space-x-2">
+            </Link>
+            <button 
+              className="btn-secondary flex items-center space-x-2"
+              onClick={() => {
+                // Mock download functionality
+                alert('다운로드 기능은 곧 추가될 예정입니다!');
+              }}
+            >
               <Download className="w-5 h-5" />
               <span>다운로드</span>
             </button>
-            <button className="btn-ghost flex items-center space-x-2">
+            <button 
+              className="btn-ghost flex items-center space-x-2"
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: 'Daily Paper Cast',
+                    text: 'AI 연구 논문을 팟캐스트로 만나보세요!',
+                    url: window.location.href
+                  });
+                } else {
+                  // Fallback: copy to clipboard
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('링크가 클립보드에 복사되었습니다!');
+                }
+              }}
+            >
               <Share2 className="w-5 h-5" />
               <span>공유하기</span>
             </button>
