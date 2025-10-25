@@ -83,6 +83,10 @@ Thumbs.db
 static-site/podcasts/*.json
 !static-site/podcasts/index.json
 
+# Development artifacts
+test-static-site/
+specs/
+
 # Deployment
 gh-pages/
 .deploy/
@@ -117,4 +121,3 @@ dist/
 
 # Vercel
 .vercel
-
