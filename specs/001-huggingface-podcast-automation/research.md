@@ -1,289 +1,201 @@
-# Research: HuggingFace Podcast Automation
+# 리서치: PaperCast API 레이어 추가
 
-**Feature**: 001-huggingface-podcast-automation  
-**Date**: 2025-01-27  
-**Phase**: 0 - Technical Research
+**날짜**: 2025-01-27  
+**기능**: 001-huggingface-podcast-automation  
+**상태**: 완료
 
-## Overview
+## 리서치 작업
 
-이 문서는 HuggingFace Podcast Automation 기능 구현에 필요한 기술 스택 및 라이브러리에 대한 연구 결과를 담고 있습니다.
+### 1. 기존 코드 구조 분석 및 재사용 전략
 
-## 1. Hugging Face API Client
+**결정**: 기존 `src/` 파이프라인은 그대로 유지하고 읽기 전용 API만 추가
 
-### Decision
-`huggingface_hub` 공식 Python SDK 사용
+**근거**:
+- 기존 파이프라인이 완성되어 있고 안정적으로 동작함
+- GitHub Actions가 기존 파이프라인에 의존하고 있음
+- JSON 파일 기반 저장소가 이미 구축되어 있음
+- 복잡한 데이터베이스 마이그레이션 불필요
 
-### Rationale
-- Hugging Face의 공식 라이브러리로 안정성과 유지보수 보장
-- Trending Papers API 지원
-- 간단한 인증 및 API 호출 인터페이스
-- 활발한 커뮤니티 지원
+**고려한 대안**:
+- PostgreSQL 전환: 오버엔지니어링, 현재 규모에 불필요
+- 기존 코드 전면 수정: 리스크 높음, 작동하는 시스템 건드리지 않기
+- 마이크로서비스 아키텍처: 현재 규모에 과도함
 
-### Implementation Details
+**구현**:
 ```python
-from huggingface_hub import HfApi
+# API는 기존 JSON 파일을 읽기만 함
+# src/main.py (파이프라인) - 변경 없음
+# api/main.py (새로운 API) - 읽기 전용
 
-api = HfApi()
-# Papers endpoint를 통한 트렌딩 논문 조회
+# 데이터 흐름:
+# 1. GitHub Actions → src/main.py → data/podcasts/*.json 생성
+# 2. API → data/podcasts/*.json 읽기 → 클라이언트에 제공
 ```
 
-### Alternatives Considered
-- **직접 REST API 호출**: 낮은 수준의 제어가 가능하지만 유지보수 부담 증가
-- **웹 스크래핑**: API가 없을 경우의 대안이지만 불안정하고 이용 약관 위반 가능성
-
-### Best Practices
-- API rate limiting 준수
-- 인증 토큰은 환경 변수로 관리
-- 오류 발생 시 exponential backoff 재시도
-
 ---
 
-## 2. Google Gemini SDK
+### 2. FastAPI 최소 구현 패턴
 
-### Decision
-`google-generativeai` Python SDK 사용
+**결정**: FastAPI를 경량화하여 JSON 파일 서빙에 집중
 
-### Rationale
-- Google의 공식 Gemini API Python 클라이언트
-- Gemini Pro 모델 지원
-- 스트리밍 및 배치 처리 지원
-- 명확한 API 문서 및 예제
+**근거**:
+- 데이터베이스 없이 파일 시스템만 사용
+- CRUD 중 Read만 구현 (Create/Update/Delete는 파이프라인이 담당)
+- 간단한 캐싱으로 성능 최적화
 
-### Implementation Details
+**고려한 대안**:
+- Flask: FastAPI가 더 현대적이고 자동 문서 생성 지원
+- Express.js: Python 생태계 유지가 더 나음
+
+**구현**:
 ```python
-import google.generativeai as genai
+from fastapi import FastAPI
+from pathlib import Path
+import json
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel('gemini-pro')
-response = model.generate_content(prompt)
+app = FastAPI(title="PaperCast API")
+
+PODCASTS_DIR = Path("data/podcasts")
+
+@app.get("/episodes")
+async def list_episodes():
+    episodes = []
+    for json_file in PODCASTS_DIR.glob("*.json"):
+        with open(json_file) as f:
+            episodes.append(json.load(f))
+    return {"episodes": sorted(episodes, key=lambda x: x['id'], reverse=True)}
+
+@app.get("/episodes/{episode_id}")
+async def get_episode(episode_id: str):
+    file_path = PODCASTS_DIR / f"{episode_id}.json"
+    if not file_path.exists():
+        raise HTTPException(404, "Episode not found")
+    with open(file_path) as f:
+        return json.load(f)
 ```
 
-### Alternatives Considered
-- **OpenAI GPT**: 강력하지만 비용이 높고 사용자가 Gemini를 명시적으로 요청함
-- **Claude API**: 높은 품질이지만 프로젝트 요구사항이 Gemini 지정
-
-### Best Practices
-- API 키 보안 관리 (GitHub Secrets)
-- 할당량 모니터링
-- 프롬프트 최적화로 토큰 사용량 최소화
-- 응답 검증 및 오류 처리
-
 ---
 
-## 3. Google Cloud Text-to-Speech
+### 3. 프론트엔드와 API 통합
 
-### Decision
-`google-cloud-texttospeech` Python SDK 사용
+**결정**: 기존 static-site는 유지하고, 선택적으로 Next.js 추가
 
-### Rationale
-- Google Cloud의 공식 TTS 라이브러리
-- 고품질 음성 합성
-- 다양한 언어 및 음성 선택 가능
-- MP3, WAV 등 다양한 출력 형식 지원
+**근거**:
+- static-site는 이미 완성되어 있고 PDF 뷰어 등 기능 포함
+- Next.js는 SEO와 동적 기능이 필요할 때만 사용
+- 두 가지 옵션을 모두 제공하여 유연성 확보
 
-### Implementation Details
-```python
-from google.cloud import texttospeech
+**고려한 대안**:
+- static-site 완전 폐기: 이미 작동하는 시스템 버리기 아까움
+- Next.js만 사용: static-site의 기존 기능 재구현 필요
 
-client = texttospeech.TextToSpeechClient()
-synthesis_input = texttospeech.SynthesisInput(text="...")
-voice = texttospeech.VoiceSelectionParams(
-    language_code="ko-KR",
-    name="ko-KR-Wavenet-A"
-)
-audio_config = texttospeech.AudioConfig(
-    audio_encoding=texttospeech.AudioEncoding.MP3
-)
-response = client.synthesize_speech(
-    input=synthesis_input,
-    voice=voice,
-    audio_config=audio_config
-)
+**구현**:
+```
+Option 1: static-site (기본)
+- 파이프라인이 HTML 직접 생성
+- CDN에서 정적 파일 서빙
+- 빠르고 간단함
+
+Option 2: Next.js (선택)
+- API를 통해 데이터 가져오기
+- 동적 라우팅 및 SEO 최적화
+- 더 현대적인 사용자 경험
 ```
 
-### Alternatives Considered
-- **Amazon Polly**: 좋은 품질이지만 GCP 생태계 통합을 위해 Google TTS 선택
-- **오픈소스 TTS (Coqui, Festival)**: 무료지만 품질과 유지보수성이 낮음
-
-### Best Practices
-- 적절한 음성 선택 (한국어: ko-KR-Wavenet-A)
-- SSML 활용으로 발음 및 억양 조정
-- 비용 최적화를 위한 텍스트 길이 관리
-- 오디오 파일 크기 최적화
-
 ---
 
-## 4. Google Cloud Storage
+### 4. 배포 및 호스팅 전략
 
-### Decision
-`google-cloud-storage` Python SDK 사용
+**결정**: API는 Vercel Serverless Functions, static-site는 GitHub Pages
 
-### Rationale
-- GCP의 공식 Storage 라이브러리
-- 높은 가용성 및 내구성
-- CDN 통합 용이
-- 버전 관리 및 라이프사이클 정책 지원
+**근거**:
+- Vercel은 무료 티어로 충분 (월 100GB 대역폭, 100,000 요청)
+- GitHub Pages는 무료로 정적 사이트 호스팅
+- 별도의 서버 관리 불필요
 
-### Implementation Details
-```python
-from google.cloud import storage
+**고려한 대안**:
+- Google Cloud Run: 비용 발생, 현재 트래픽에 과도함
+- AWS Lambda: Vercel이 더 간단하고 Next.js 통합 우수
+- Heroku: 무료 티어 종료됨
 
-client = storage.Client()
-bucket = client.bucket('papercast-podcasts')
-blob = bucket.blob(f'podcasts/{date}/episode.mp3')
-blob.upload_from_filename(local_file_path)
-blob.make_public()
-```
-
-### Alternatives Considered
-- **AWS S3**: 널리 사용되지만 GCP 생태계 통합 선호
-- **Cloudflare R2**: 무료 egress지만 GCS의 성숙도 선택
-
-### Best Practices
-- 버킷 권한 설정 (공개 읽기)
-- 객체 라이프사이클 관리 (30일 후 삭제)
-- 버전 관리 활성화
-- CDN 캐싱 설정
-
----
-
-## 5. 정적 사이트 호스팅
-
-### Decision
-GitHub Pages 사용 (우선순위 1), Cloudflare Pages (대안)
-
-### Rationale
-- **GitHub Pages**:
-  - GitHub Actions와 완벽한 통합
-  - 무료
-  - 자동 배포
-  - HTTPS 기본 지원
-- **Cloudflare Pages** (대안):
-  - 빠른 CDN
-  - 무료 티어 제공
-  - GitHub 통합 지원
-
-### Implementation Details
-- GitHub Actions에서 정적 사이트 빌드
-- `gh-pages` 브랜치에 배포
-- HTML5 오디오 플레이어로 MP3 재생
-
-### Alternatives Considered
-- **Netlify**: 좋은 서비스지만 GitHub Pages가 프로젝트에 더 적합
-- **Vercel**: 동적 기능에 강점이지만 정적 사이트에는 과도함
-
-### Best Practices
-- 경량 HTML/CSS/JS
-- 반응형 디자인
-- SEO 최적화
-- 접근성 표준 준수
-
----
-
-## 6. GitHub Actions 워크플로우
-
-### Decision
-`schedule` 트리거를 사용한 cron 기반 자동화
-
-### Rationale
-- GitHub Actions 내장 기능
-- 무료 (public repo)
-- 안정적인 스케줄링
-- 완전한 CI/CD 통합
-
-### Implementation Details
+**구현**:
 ```yaml
-name: Daily Podcast Generation
-on:
-  schedule:
-    - cron: '0 6 * * *'  # 매일 아침 6시 (UTC 기준, 한국 시간 15시)
-  workflow_dispatch:  # 수동 실행 지원
+# Vercel 배포 (API + Next.js)
+vercel.json:
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" }
+  ]
+}
+
+# GitHub Pages 배포 (static-site)
+.github/workflows/daily-podcast.yml:
+- name: Deploy to GitHub Pages
+  uses: peaceiris/actions-gh-pages@v3
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_dir: ./static-site
 ```
-
-### Alternatives Considered
-- **외부 cron 서비스 (AWS EventBridge, Google Cloud Scheduler)**: 추가 비용 및 복잡성
-- **서버 기반 cron**: 인프라 유지보수 필요
-
-### Best Practices
-- 타임존 고려 (UTC → KST 변환)
-- 실패 시 재시도 로직
-- 단계별 로깅
-- Secrets 관리
 
 ---
 
-## 7. 의존성 관리
+### 5. 캐싱 및 성능 최적화
 
-### Decision
-`requirements.txt` + `pip-tools` 사용
+**결정**: 인메모리 캐싱 + CDN
 
-### Rationale
-- Python 표준 방식
-- GitHub Actions와 호환성 우수
-- 의존성 버전 고정 가능
+**근거**:
+- 파일 시스템 I/O는 느릴 수 있음
+- 에피소드 데이터는 거의 변경되지 않음 (일일 1회)
+- 간단한 딕셔너리 캐싱으로 충분
 
-### Dependencies List
-```
-huggingface-hub>=0.20.0
-google-generativeai>=0.3.0
-google-cloud-texttospeech>=2.16.0
-google-cloud-storage>=2.14.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-pytest>=7.4.0
-pytest-cov>=4.1.0
-pytest-mock>=3.12.0
-```
+**고려한 대안**:
+- Redis: 오버킬, 인프라 복잡도 증가
+- 데이터베이스: 현재 규모에 불필요
 
-### Best Practices
-- 시맨틱 버전닝 사용
-- 정기적인 보안 업데이트
-- 의존성 취약점 스캔 (Dependabot)
-
----
-
-## 8. 오류 처리 및 재시도
-
-### Decision
-커스텀 재시도 데코레이터 + `tenacity` 라이브러리
-
-### Rationale
-- 외부 API 호출의 일시적 실패 대응
-- Exponential backoff 지원
-- 유연한 재시도 정책
-
-### Implementation Details
+**구현**:
 ```python
-from tenacity import retry, stop_after_attempt, wait_exponential
+from functools import lru_cache
+from datetime import datetime, timedelta
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10)
-)
-def fetch_papers():
-    # API 호출
+# 간단한 TTL 캐시
+cache = {}
+CACHE_TTL = timedelta(hours=1)
+
+@lru_cache(maxsize=128)
+def get_episode_cached(episode_id: str):
+    # 파일 시스템 읽기를 캐싱
+    file_path = PODCASTS_DIR / f"{episode_id}.json"
+    with open(file_path) as f:
+        return json.load(f)
+
+# 또는 FastAPI Cache
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
+
+FastAPICache.init(InMemoryBackend())
+
+@app.get("/episodes")
+@cache(expire=3600)  # 1시간 캐싱
+async def list_episodes():
     pass
 ```
 
-### Best Practices
-- API별 재시도 정책 차별화
-- 최대 재시도 횟수 제한
-- 실패 로깅
-- Circuit breaker 패턴 고려
-
 ---
 
-## 9. 로깅 및 모니터링
+### 6. 모니터링 및 로깅
 
-### Decision
-Python `logging` 모듈 + GitHub Actions 로그
+**결정**: FastAPI 내장 로깅 + Vercel Analytics
 
-### Rationale
-- Python 표준 라이브러리
-- 구조화된 로깅 지원
-- GitHub Actions 통합
+**근거**:
+- 추가 인프라 불필요
+- Vercel이 기본 분석 제공
+- Python logging으로 충분
 
-### Implementation Details
+**고려한 대안**:
+- Sentry: 현재 규모에 과도함
+- Google Cloud Logging: 비용 발생
+
+**구현**:
 ```python
 import logging
 
@@ -291,56 +203,60 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
 logger = logging.getLogger(__name__)
-```
 
-### Best Practices
-- 단계별 로그 레벨 구분 (INFO, WARNING, ERROR)
-- 민감 정보 마스킹
-- 실행 시간 추적
-- 오류 스택 트레이스 기록
+@app.middleware("http")
+async def log_requests(request, call_next):
+    logger.info(f"{request.method} {request.url.path}")
+    response = await call_next(request)
+    logger.info(f"Status: {response.status_code}")
+    return response
+```
 
 ---
 
-## 10. 테스트 전략
+## 기술적 결정 요약
 
-### Decision
-`pytest` + `pytest-mock` + `pytest-cov`
-
-### Rationale
-- Python 업계 표준 테스트 프레임워크
-- 풍부한 플러그인 생태계
-- 간결한 테스트 작성
-
-### Implementation Details
-```python
-import pytest
-from unittest.mock import Mock, patch
-
-def test_collect_papers(mocker):
-    mock_api = mocker.patch('huggingface_hub.HfApi')
-    mock_api.return_value.list_papers.return_value = [...]
-    
-    result = collect_papers()
-    assert len(result) == 3
-```
-
-### Best Practices
-- 외부 API는 모킹
-- 테스트 픽스처 활용
-- 커버리지 80% 이상 유지
-- CI/CD에서 자동 실행
+| 컴포넌트 | 기술 | 근거 |
+|---------|------|------|
+| 파이프라인 | 기존 `src/` 유지 | 완성되고 안정적, 변경 불필요 |
+| API 프레임워크 | FastAPI | 경량, 자동 문서, 타입 힌트 |
+| 데이터 저장 | JSON 파일 유지 | 간단, 현재 규모 충분, DB 불필요 |
+| 프론트엔드 | static-site + Next.js (선택) | 유연성, 기존 기능 유지 |
+| API 배포 | Vercel Serverless | 무료, 간단, Next.js 통합 |
+| Static 배포 | GitHub Pages | 무료, 자동 배포 |
+| 캐싱 | 인메모리 (lru_cache) | 간단, 충분한 성능 |
+| 인증 | 없음 (읽기 전용 공개 API) | 현재 불필요 |
 
 ---
 
-## Summary
+## 리스크 완화
 
-모든 기술 선택은 다음 기준을 충족합니다:
-1. **안정성**: 공식 SDK 또는 성숙한 라이브러리 사용
-2. **비용 효율성**: 무료 또는 저비용 솔루션 우선
-3. **통합성**: GCP 및 GitHub 생태계 통합
-4. **유지보수성**: 활발한 커뮤니티 지원 및 문서화
-5. **확장성**: 향후 기능 추가 용이
+### 높은 리스크 영역
+1. **기존 파이프라인 중단**: API 추가로 인한 부작용
+   - 완화: `src/`는 전혀 수정하지 않음
+2. **파일 시스템 동시성**: API와 파이프라인이 동시 접근
+   - 완화: API는 읽기만 하므로 충돌 없음
+3. **배포 복잡도**: 두 개의 서비스 (API + static-site)
+   - 완화: GitHub Actions에서 순차적으로 배포
 
-모든 "NEEDS CLARIFICATION" 항목이 해결되었으며, 구현 준비가 완료되었습니다.
+### 대응 계획
+1. **API 장애**: static-site는 독립적으로 작동
+2. **파이프라인 실패**: 이전 에피소드는 계속 서비스됨
+3. **호스팅 문제**: Vercel/GitHub Pages 장애 시 대체 호스팅 준비
 
+---
+
+## 다음 단계
+
+1. **Phase 1**: data-model.md 작성 (기존 모델 활용)
+2. **Phase 1**: API contracts 정의 (OpenAPI 스펙)
+3. **Phase 1**: quickstart.md 작성 (API 실행 가이드)
+4. **Phase 2**: tasks.md 생성 (구현 작업 분해)
+
+---
+
+**리서치 상태**: ✅ 완료  
+**기술적 명확성**: ✅ 모두 해결됨  
+**Phase 1 준비**: ✅ 완료

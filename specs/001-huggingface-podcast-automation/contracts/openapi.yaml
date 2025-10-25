@@ -1,0 +1,503 @@
+openapi: 3.0.3
+info:
+  title: Daily Paper Cast API
+  description: API for managing daily podcast episodes and academic papers
+  version: 1.0.0
+  contact:
+    name: PaperCast Team
+    email: support@papercast.ai
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.papercast.ai/v1
+    description: Production server
+  - url: https://staging-api.papercast.ai/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+paths:
+  /episodes:
+    get:
+      summary: List all episodes
+      description: Returns a paginated list of all episodes, ordered by publication date (newest first)
+      tags:
+        - Episodes
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of episodes per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: include_papers
+          in: query
+          description: Include associated papers in response
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  episodes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Episode'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /episodes/latest:
+    get:
+      summary: Get latest episode
+      description: Returns the most recent episode with all associated papers
+      tags:
+        - Episodes
+      responses:
+        '200':
+          description: Latest episode found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeWithPapers'
+        '404':
+          description: No episodes found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /episodes/{episode_id}:
+    get:
+      summary: Get episode by ID
+      description: Returns a specific episode with all associated papers
+      tags:
+        - Episodes
+      parameters:
+        - name: episode_id
+          in: path
+          description: Episode ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Episode found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpisodeWithPapers'
+        '404':
+          description: Episode not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /papers:
+    get:
+      summary: List all papers
+      description: Returns a paginated list of all papers across all episodes
+      tags:
+        - Papers
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of papers per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: episode_id
+          in: query
+          description: Filter papers by episode ID
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: search
+          in: query
+          description: Search papers by title or authors
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  papers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Paper'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /papers/{paper_id}:
+    get:
+      summary: Get paper by ID
+      description: Returns a specific paper with its episode information
+      tags:
+        - Papers
+      parameters:
+        - name: paper_id
+          in: path
+          description: Paper ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Paper found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperWithEpisode'
+        '404':
+          description: Paper not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API
+      tags:
+        - System
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                  database:
+                    type: string
+                    enum: [connected, disconnected]
+                  services:
+                    type: object
+                    properties:
+                      gemini:
+                        type: string
+                        enum: [available, unavailable]
+                      tts:
+                        type: string
+                        enum: [available, unavailable]
+                      storage:
+                        type: string
+                        enum: [available, unavailable]
+
+components:
+  schemas:
+    Episode:
+      type: object
+      required:
+        - id
+        - title
+        - publication_date
+        - audio_url
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          description: Unique episode identifier
+          example: 1
+        title:
+          type: string
+          description: Episode title
+          maxLength: 255
+          example: "Daily Papers - Oct 26, 2025"
+        publication_date:
+          type: string
+          format: date
+          description: Date when episode was published
+          example: "2025-10-26"
+        audio_url:
+          type: string
+          format: uri
+          description: URL to MP3 audio file
+          example: "https://storage.googleapis.com/papercast-podcasts/2025-10-26/episode.mp3"
+        script:
+          type: string
+          description: Full generated script text
+          nullable: true
+          example: "Welcome to today's AI paper podcast..."
+        duration_seconds:
+          type: integer
+          description: Audio duration in seconds
+          minimum: 1
+          nullable: true
+          example: 627
+        file_size_bytes:
+          type: integer
+          description: MP3 file size in bytes
+          minimum: 1
+          nullable: true
+          example: 5026816
+        created_at:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2025-10-26T06:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-10-26T06:30:00Z"
+
+    EpisodeWithPapers:
+      allOf:
+        - $ref: '#/components/schemas/Episode'
+        - type: object
+          properties:
+            papers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Paper'
+              description: Associated papers for this episode
+
+    Paper:
+      type: object
+      required:
+        - id
+        - title
+        - authors
+        - summary
+        - url
+        - episode_id
+        - created_at
+      properties:
+        id:
+          type: integer
+          description: Unique paper identifier
+          example: 1
+        title:
+          type: string
+          description: Paper title
+          maxLength: 500
+          example: "Every Attention Matters"
+        authors:
+          type: array
+          items:
+            type: string
+          description: List of author names
+          minItems: 1
+          maxItems: 20
+          example: ["John Doe", "Jane Smith"]
+        summary:
+          type: string
+          description: AI-generated summary
+          minLength: 50
+          maxLength: 2000
+          example: "This paper introduces a novel attention mechanism..."
+        url:
+          type: string
+          format: uri
+          description: Link to original paper
+          example: "https://huggingface.co/papers/2510.19338"
+        arxiv_id:
+          type: string
+          description: ArXiv identifier
+          pattern: '^\d{4}\.\d{4,5}$'
+          nullable: true
+          example: "2510.19338"
+        abstract:
+          type: string
+          description: Original paper abstract
+          nullable: true
+          example: "We propose a novel approach to attention mechanisms..."
+        categories:
+          type: array
+          items:
+            type: string
+          description: Paper categories/tags
+          nullable: true
+          example: ["cs.CL", "cs.AI"]
+        upvotes:
+          type: integer
+          description: Hugging Face upvote count
+          minimum: 0
+          default: 0
+          example: 142
+        episode_id:
+          type: integer
+          description: Parent episode ID
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2025-10-26T06:00:00Z"
+
+    PaperWithEpisode:
+      allOf:
+        - $ref: '#/components/schemas/Paper'
+        - type: object
+          properties:
+            episode:
+              $ref: '#/components/schemas/Episode'
+              description: Parent episode information
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - pages
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          minimum: 1
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          minimum: 1
+          maximum: 50
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          minimum: 0
+          example: 100
+        pages:
+          type: integer
+          description: Total number of pages
+          minimum: 0
+          example: 5
+        has_next:
+          type: boolean
+          description: Whether there is a next page
+          example: true
+        has_prev:
+          type: boolean
+          description: Whether there is a previous page
+          example: false
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid episode ID"
+        details:
+          type: object
+          description: Additional error details
+          nullable: true
+          example:
+            field: "episode_id"
+            value: "invalid"
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "ValidationError"
+            message: "Invalid request parameters"
+            details:
+              field: "page"
+              value: -1
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "InternalServerError"
+            message: "An unexpected error occurred"
+            details: null
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Episodes
+    description: Episode management operations
+  - name: Papers
+    description: Paper management operations
+  - name: System
+    description: System health and status operations

@@ -83,3 +83,15 @@ Thumbs.db
 static-site/podcasts/*.json
 !static-site/podcasts/index.json
 
+# Deployment
+gh-pages/
+.deploy/
+
+# Backup files
+*-backup/
+*.backup
+
+# Development cache
+.cache/
+cache/
+

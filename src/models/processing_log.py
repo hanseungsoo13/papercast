@@ -31,7 +31,7 @@ class ProcessingLog(BaseModel):
     )
     step: str = Field(
         ...,
-        pattern="^(collect|summarize|tts|upload|deploy)$",
+        pattern="^(collect|summarize|tts|upload|deploy|generate_site)$",
         description="Processing step"
     )
     status: str = Field(
