@@ -95,124 +95,62 @@ jobs:
           # GCS 기반 데이터 저장을 위한 메인 파이프라인 실행
           python src/main.py
 
-      - name: Run tests
+
+  notify-on-success:
+    # 팟캐스트 생성(generate-podcast) 잡에만 의존합니다.
+    needs: [generate-podcast]
+    runs-on: ubuntu-latest
+    # generate-podcast 잡이 성공했을 때만 실행됩니다.
+    if: success()
+
+    steps:
+      - name: Send success notification to Slack
+        # SLACK_WEBHOOK_URL 시크릿이 설정된 경우에만 이 스텝을 실행합니다.
+        if: env.SLACK_WEBHOOK_URL != ''
         env:
+          # 사용할 시크릿들을 환경 변수로 설정합니다.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
         run: |
-          # GCS 기반 테스트 실행
-          python -m pytest tests/ -v --cov=src --cov-report=xml
+          # 팟캐스트 날짜와 GCS URL을 동적으로 생성합니다.
+          PODCAST_DATE=$(date +%Y-%m-%d)
+          PODCAST_URL="https://storage.googleapis.com/${GCS_BUCKET_NAME}/${PODCAST_DATE}/episode.mp3"
+          
+          # JSON 페이로드를 변수로 만들어 curl 명령을 깔끔하게 유지합니다.
+          # Slack의 mrkdwn 형식을 사용합니다.
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "text": "✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +'%H:%M:%S KST')\n• <${PODCAST_URL}|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!"
+          }
+          EOF
+          )
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-          flags: backend
-          name: backend-coverage
+          # curl 명령으로 슬랙에 POST 요청을 보냅니다.
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data "${JSON_PAYLOAD}"
 
-  deploy-backend:
-    needs: generate-podcast
+  notify-on-failure:
+    needs: [generate-podcast]
     runs-on: ubuntu-latest
-    if: success()
-    
+    # generate-podcast 잡이 실패했을 때만 실행됩니다.
+    if: failure()
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Configure Docker
-        run: |
-          gcloud auth configure-docker
-
-      - name: Build and push backend image
-        run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }}
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy papercast-backend \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }} \
-            --platform managed \
-            --region asia-northeast3 \
-            --allow-unauthenticated \
-            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" \
-            --set-secrets="GCP_SERVICE_ACCOUNT_KEY=${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}:latest"
-
-  deploy-frontend:
-    needs: generate-podcast
-    runs-on: ubuntu-latest
-    if: success()
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm install
-
-      - name: Build frontend
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.FRONTEND_API_URL }}
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
-
-  notify-success:
-    needs: [generate-podcast, deploy-backend, deploy-frontend]
-    runs-on: ubuntu-latest
-    if: always() && (needs.generate-podcast.result == 'success')
-    
-    steps:
-      - name: Notify Slack
-        if: success()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: success
-          channel: '#papercast'
-          text: |
-            🎉 오늘의 AI 논문 팟캐스트가 완성되었습니다!
-            
-            📅 날짜: $(date +%Y-%m-%d)
-            🎧 지금 바로 들어보세요: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}
-            📖 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
-            
-            새로운 논문들이 기다리고 있습니다! 🚀
+      - name: Send failure notification to Slack
+        if: env.SLACK_WEBHOOK_URL != ''
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          # 실패 로그를 바로 볼 수 있도록 GitHub Actions URL을 동적으로 만듭니다.
+          ACTIONS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "text": "❌ *PaperCast 생성 실패!*\n• 날짜: $(date +%Y-%m-%d)\n• 시간: $(date +'%H:%M:%S KST')\n<${ACTIONS_URL}|🔍 GitHub Actions 로그 확인>"
+          }
+          EOF
+          )
 
-      - name: Notify Slack (Failure)
-        if: failure()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          channel: '#papercast'
-          text: |
-            ❌ 오늘의 AI 논문 팟캐스트 생성에 실패했습니다!
-            
-            📅 날짜: $(date +%Y-%m-%d)
-            🔍 GitHub Actions 로그를 확인해주세요
-            📖 기존 아카이브: ${{ secrets.FRONTEND_URL || 'https://papercast.vercel.app' }}/archive
-            
-            문제를 해결한 후 다시 시도해주세요! 🛠️
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data "${JSON_PAYLOAD}"
