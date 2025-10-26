@@ -45,42 +45,41 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          cd backend
-          uv pip install -r requirements.txt
+          uv pip install --system -r requirements.txt
 
       - name: Install Node.js dependencies
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Set up Google Cloud credentials
         env:
-          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
-          mkdir -p backend/credentials
-          echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > backend/credentials/service-account.json
+          mkdir -p credentials
+          printf "%s" "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > credentials/service-account.json
+          
+          # JSON 유효성 검사 (오류 발생 시 파일 내용 출력)
+          if ! python3 -m json.tool credentials/service-account.json > /dev/null; then
+            echo "❌ Invalid JSON after decoding. File content:"
+            cat credentials/service-account.json
+            exit 1
+          fi
+          
+          echo "✅ GCP credentials setup successful"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/credentials/service-account.json" >> $GITHUB_ENV
 
-      - name: Set up PostgreSQL
+      - name: Set up data directory
         run: |
-          sudo systemctl start postgresql
-          sudo -u postgres psql -c "CREATE DATABASE papercast_test;"
-          sudo -u postgres psql -c "CREATE USER papercast_user WITH PASSWORD 'test_password';"
-          sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE papercast_test TO papercast_user;"
-
-      - name: Run database migrations
-        env:
-          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
-        run: |
-          cd backend
-          alembic upgrade head
+          # GCS 기반이므로 로컬 데이터 디렉토리는 필요 없음
+          # 하지만 테스트를 위해 임시 디렉토리 생성
+          mkdir -p data/podcasts
+          mkdir -p data/logs
+          mkdir -p data/temp
 
       - name: Generate podcast episode
         env:
-          # Database
-          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
-          
           # Google Cloud
-          GOOGLE_APPLICATION_CREDENTIALS: ./credentials/service-account.json
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
           
           # AI Services
@@ -89,20 +88,24 @@ jobs:
           # Test mode
           TEST_MODE: ${{ inputs.test_mode || 'false' }}
         run: |
-          cd backend
-          python scripts/generate_episode.py
+          # Verify credentials file exists and is readable
+          ls -la credentials/
+          echo "File size: $(wc -c < credentials/service-account.json) bytes"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
+          # GCS 기반 데이터 저장을 위한 메인 파이프라인 실행
+          python src/main.py
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql://papercast_user:test_password@localhost:5432/papercast_test
+          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
         run: |
-          cd backend
-          pytest tests/ -v --cov=src --cov-report=xml
+          # GCS 기반 테스트 실행
+          python -m pytest tests/ -v --cov=src --cov-report=xml
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
-          file: backend/coverage.xml
+          file: coverage.xml
           flags: backend
           name: backend-coverage
 
@@ -127,7 +130,6 @@ jobs:
 
       - name: Build and push backend image
         run: |
-          cd backend
           docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }} .
           docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/papercast-backend:${{ github.sha }}
 
@@ -138,7 +140,8 @@ jobs:
             --platform managed \
             --region asia-northeast3 \
             --allow-unauthenticated \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}"
+            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" \
+            --set-secrets="GCP_SERVICE_ACCOUNT_KEY=${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}:latest"
 
   deploy-frontend:
     needs: generate-podcast
@@ -157,7 +160,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Build frontend
         env:

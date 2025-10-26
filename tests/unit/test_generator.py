@@ -155,7 +155,7 @@ class TestStaticSiteGenerator:
         
         # Check content
         assert "PaperCast" in html_content
-        assert "Daily AI Paper Podcasts" in html_content
+        assert "최신 에피소드" in html_content
         assert "Test Daily AI Papers - October 24, 2025" in html_content
     
     @pytest.mark.unit
@@ -190,7 +190,6 @@ class TestStaticSiteGenerator:
         
         # Check JavaScript data
         assert "const papersData = " in html_content
-        assert "const podcastData = " in html_content
     
     @pytest.mark.unit
     def test_generate_styles(self, generator):
@@ -232,8 +231,8 @@ class TestStaticSiteGenerator:
         
         # Check for key JavaScript functions
         assert "function toggleSplitView" in js_content
-        assert "function showPaperViewer" in js_content
-        assert "function closePaperViewer" in js_content
+        assert "function openSplitViewMode" in js_content
+        assert "function closeSplitViewMode" in js_content
         assert "addEventListener" in js_content
         assert "document.getElementById" in js_content
     

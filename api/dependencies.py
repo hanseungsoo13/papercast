@@ -7,18 +7,23 @@ Repository 및 설정 의존성을 관리
 from pathlib import Path
 from typing import Optional
 from functools import lru_cache
+import os
 
-from api.repository import PodcastRepository, CachedPodcastRepository
+from api.repository_gcs import GCSPodcastRepository, CachedGCSPodcastRepository
+from src.utils.config import config
 
 
 @lru_cache()
-def get_repository() -> PodcastRepository:
+def get_repository() -> GCSPodcastRepository:
     """
-    Repository 의존성 주입
+    GCS Repository 의존성 주입
     
-    싱글톤 패턴으로 Repository 인스턴스를 관리합니다.
+    싱글톤 패턴으로 GCS Repository 인스턴스를 관리합니다.
     """
-    return CachedPodcastRepository(data_dir=Path("data/podcasts"))
+    return CachedGCSPodcastRepository(
+        bucket_name=config.gcs_bucket_name,
+        credentials_path=config.google_credentials_path
+    )
 
 
 @lru_cache()

@@ -47,8 +47,20 @@ class TestTTSConverter:
         """Test handling of text exceeding length limit."""
         long_text = "a" * 6000  # Exceeds 5000 char limit
         
-        with pytest.raises(ValueError, match="Text exceeds maximum length"):
-            tts_converter.convert_to_speech(long_text, "/tmp/output.mp3")
+        with patch.object(tts_converter, 'client') as mock_client:
+            mock_response = Mock()
+            mock_response.audio_content = b'fake_audio_data'
+            mock_client.synthesize_speech.return_value = mock_response
+            
+            with patch('builtins.open', mock_open()):
+                with patch('pathlib.Path.mkdir'):
+                    with patch('pathlib.Path.stat') as mock_stat:
+                        mock_stat.return_value.st_size = 1024
+                        # Mock shutil.rmtree to avoid file system issues
+                        with patch('shutil.rmtree'):
+                            # Should not raise exception, but handle long text by splitting
+                            result_path = tts_converter.convert_to_speech(long_text, "/tmp/output.mp3")
+                            assert result_path == "/tmp/output.mp3"
     
     @pytest.mark.unit
     def test_convert_to_speech_api_error(self, tts_converter):

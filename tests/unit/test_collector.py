@@ -147,7 +147,9 @@ class TestPaperCollector:
         soup = BeautifulSoup(mock_html_content, 'html.parser')
         articles = soup.find_all('article')
         
-        paper = collector._parse_paper_from_html(articles[0], "2025-10-24")
+        # Mock the _fetch_paper_details method to return expected authors
+        with patch.object(collector, '_fetch_paper_details', return_value=(["John Doe", "Jane Smith"], "2025-10-24")):
+            paper = collector._parse_paper_from_html(articles[0], "2025-10-24")
         
         assert isinstance(paper, Paper)
         assert paper.id == "2401.12345"
@@ -186,14 +188,28 @@ class TestPaperCollector:
         """Test URL generation for previous day."""
         from datetime import date, timedelta
         
-        # Mock today's date
-        with patch('src.services.collector.date') as mock_date:
-            mock_date.today.return_value = date(2025, 10, 25)
-            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+        # Mock datetime.now() instead of date module
+        with patch('src.services.collector.datetime') as mock_datetime:
+            mock_datetime.now.return_value = datetime(2025, 10, 25, 12, 0, 0)
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
             
-            url = collector._get_previous_day_url()
-            expected_url = "https://huggingface.co/papers/date/2025-10-24"
-            assert url == expected_url
+            # Test the actual URL generation logic in fetch_papers
+            with patch('src.services.collector.requests.get') as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.text = "<html><body></body></html>"
+                mock_get.return_value = mock_response
+                
+                # This should generate the correct URL internally
+                try:
+                    collector.fetch_papers(count=1)
+                except ValueError:
+                    pass  # Expected since we return empty HTML
+                
+                # Check that the URL was called with the correct date
+                mock_get.assert_called_once()
+                call_args = mock_get.call_args[0][0]
+                assert "date=2025-10-24" in call_args
     
     @pytest.mark.unit
     def test_enhanced_paper_fields(self, collector, mock_html_content):

@@ -19,6 +19,34 @@
 
 ## Quick Start
 
+### 방법 1: GitHub Actions 자동 배포 (권장)
+
+#### 1. GitHub Secrets 설정
+Repository → Settings → Secrets and variables → Actions에서 다음 Secrets 설정:
+
+| Secret Name | Description |
+|-------------|-------------|
+| `GEMINI_API_KEY` | Google Gemini API 키 |
+| `GCP_SERVICE_ACCOUNT_KEY` | GCP Service Account JSON (base64) |
+| `GCP_PROJECT_ID` | Google Cloud 프로젝트 ID |
+| `GCS_BUCKET_NAME` | Google Cloud Storage 버킷 이름 |
+| `DATABASE_URL` | PostgreSQL 데이터베이스 URL |
+| `VERCEL_TOKEN` | Vercel API 토큰 |
+| `VERCEL_ORG_ID` | Vercel 조직 ID |
+| `VERCEL_PROJECT_ID` | Vercel 프로젝트 ID |
+| `SLACK_WEBHOOK_URL` | Slack 웹훅 URL (선택사항) |
+
+#### 2. 자동 배포 실행
+- **매일 6시 KST**: 자동 실행
+- **수동 실행**: Repository → Actions → Daily Podcast Generation → Run workflow
+
+#### 3. 배포 결과 확인
+- **프론트엔드**: `https://papercast.vercel.app`
+- **백엔드**: `https://papercast-backend-xxx-uc.a.run.app`
+- **API 문서**: `https://papercast-backend-xxx-uc.a.run.app/docs`
+
+### 방법 2: 로컬 개발 환경
+
 ### Prerequisites
 
 - Python 3.12 이상
@@ -224,6 +252,23 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 다�
 GCP Service Account에 다음 역할을 부여하세요:
 - **Cloud Storage Admin**: MP3 파일 및 메타데이터 업로드
 - **Cloud Text-to-Speech Admin**: 음성 변환
+
+### Credential 설정 문제 해결
+
+JSON 디코딩 오류가 발생하는 경우:
+
+1. **Base64 인코딩 확인**:
+   ```bash
+   cat service-account-key.json | base64 -w 0
+   ```
+
+2. **로컬 테스트**:
+   ```bash
+   export GCP_SERVICE_ACCOUNT_KEY="your_base64_encoded_key"
+   python test_credentials.py
+   ```
+
+3. **자세한 문제 해결**: [Credential 문제 해결 가이드](docs/troubleshooting-credentials.md) 참조
 
 ### 워크플로우 실행
 

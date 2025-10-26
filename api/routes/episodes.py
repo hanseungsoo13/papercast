@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 from pathlib import Path
 
-from api.repository import PodcastRepository, CachedPodcastRepository
+from api.dependencies import get_repository
 from api.schemas import (
     EpisodeResponse, 
     EpisodeDetailResponse, 
@@ -19,16 +19,11 @@ from api.schemas import (
 router = APIRouter()
 
 
-def get_repository() -> PodcastRepository:
-    """Repository 의존성 주입"""
-    return CachedPodcastRepository(data_dir=Path("data/podcasts"))
-
-
 @router.get("/episodes", response_model=EpisodesListResponse)
 async def list_episodes(
     limit: int = Query(20, ge=1, le=100, description="반환할 에피소드 개수"),
     offset: int = Query(0, ge=0, description="건너뛸 에피소드 개수"),
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     에피소드 목록 조회
@@ -64,7 +59,7 @@ async def list_episodes(
 
 @router.get("/episodes/latest", response_model=EpisodeDetailResponse)
 async def get_latest_episode(
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     최신 에피소드 조회
@@ -95,7 +90,7 @@ async def get_latest_episode(
 @router.get("/episodes/{episode_id}", response_model=EpisodeDetailResponse)
 async def get_episode(
     episode_id: str,
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     특정 에피소드 조회
@@ -135,7 +130,7 @@ async def get_episode(
 async def get_episodes_by_date_range(
     start: str = Query(..., description="시작 날짜 (YYYY-MM-DD)"),
     end: str = Query(..., description="종료 날짜 (YYYY-MM-DD)"),
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     날짜 범위로 에피소드 조회

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+from .credentials import setup_gcp_credentials_from_env
 
 
 class Config:
@@ -67,6 +68,14 @@ class Config:
         if missing:
             print(f"Missing required configuration: {', '.join(missing)}")
             return False
+        
+        # Try to setup credentials from environment variables
+        if not setup_gcp_credentials_from_env():
+            print("Failed to setup Google Cloud credentials")
+            return False
+        
+        # Update the path after setup
+        self.google_credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", self.google_credentials_path)
         
         # Check if credentials file exists
         if not Path(self.google_credentials_path).exists():
