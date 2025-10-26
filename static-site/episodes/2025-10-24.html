@@ -71,8 +71,9 @@
                     <div class="paper-actions">
                         <button class="btn btn-primary view-paper-btn" 
                                 data-paper-url="https://huggingface.co/papers/2510.19338" 
-                                onclick="openPaperInNewTab('https://huggingface.co/papers/2510.19338')">
-                            📄 논문 원본 보기
+                                data-arxiv-id="2510.19338"
+                                onclick="openPaperPDF('2510.19338', 'https://huggingface.co/papers/2510.19338')">
+                            📄 View PDF
                         </button>
                         <button class="btn btn-secondary split-view-btn" 
                                 data-paper-id="2510.19338" 
@@ -107,8 +108,9 @@
                     <div class="paper-actions">
                         <button class="btn btn-primary view-paper-btn" 
                                 data-paper-url="https://huggingface.co/papers/2510.18927" 
-                                onclick="openPaperInNewTab('https://huggingface.co/papers/2510.18927')">
-                            📄 논문 원본 보기
+                                data-arxiv-id="2510.18927"
+                                onclick="openPaperPDF('2510.18927', 'https://huggingface.co/papers/2510.18927')">
+                            📄 View PDF
                         </button>
                         <button class="btn btn-secondary split-view-btn" 
                                 data-paper-id="2510.18927" 
@@ -141,8 +143,9 @@
                     <div class="paper-actions">
                         <button class="btn btn-primary view-paper-btn" 
                                 data-paper-url="https://huggingface.co/papers/2510.19363" 
-                                onclick="openPaperInNewTab('https://huggingface.co/papers/2510.19363')">
-                            📄 논문 원본 보기
+                                data-arxiv-id="2510.19363"
+                                onclick="openPaperPDF('2510.19363', 'https://huggingface.co/papers/2510.19363')">
+                            📄 View PDF
                         </button>
                         <button class="btn btn-secondary split-view-btn" 
                                 data-paper-id="2510.19363" 
@@ -162,9 +165,9 @@
             <div class="split-view-left">
                 <div class="player-section-compact">
                     <h3>오디오 플레이어</h3>
-                    <audio id="split-view-audio" controls>
-                        <source src="https://storage.googleapis.com/papers_ethan/2025-10-24/episode.mp3" type="audio/mpeg">
-                    </audio>
+                    <div id="audio-player-placeholder" class="audio-player-placeholder">
+                        <p>Split View 모드에서는 위의 오디오 플레이어가 이곳으로 이동합니다.</p>
+                    </div>
                 </div>
             </div>
             
@@ -180,11 +183,28 @@
                     </div>
                     <div class="paper-viewer-content">
                         <iframe id="paper-embed" class="paper-embed" frameborder="0"></iframe>
+                        <div id="pdf-viewer-container" class="pdf-viewer-container" style="display: none;">
+                            <iframe id="pdf-viewer" class="pdf-viewer" frameborder="0"></iframe>
+                        </div>
                         <div id="paper-fallback" class="paper-fallback" style="display: none;">
-                            <p>이 논문은 임베딩을 지원하지 않습니다.</p>
-                            <a id="fallback-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-                                새 탭에서 열기
-                            </a>
+                            <div class="fallback-content">
+                                <svg class="fallback-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                                </svg>
+                                <p>PDF 뷰어를 사용할 수 없습니다.</p>
+                                <p class="fallback-description">브라우저에서 직접 PDF를 열어보세요.</p>
+                                <a id="fallback-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                                    <svg class="btn-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                                    </svg>
+                                    새 탭에서 PDF 열기
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

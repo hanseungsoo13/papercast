@@ -31,7 +31,22 @@ async def get_paper(
                 detail=f"논문 '{paper_id}'를 찾을 수 없습니다"
             )
         
-        return PaperResponse.from_paper(paper_data)
+        # dict에서 직접 PaperResponse 생성
+        return PaperResponse(
+            id=paper_data.get('id'),
+            title=paper_data.get('title'),
+            authors=paper_data.get('authors', []),
+            abstract=paper_data.get('abstract'),
+            summary=paper_data.get('summary'),
+            short_summary=paper_data.get('short_summary'),
+            url=str(paper_data.get('url', '')),
+            arxiv_id=paper_data.get('arxiv_id'),
+            categories=paper_data.get('categories'),
+            upvotes=paper_data.get('upvotes', 0),
+            thumbnail_url=str(paper_data.get('thumbnail_url', '')) if paper_data.get('thumbnail_url') else None,
+            published_date=paper_data.get('published_date'),
+            collected_at=paper_data.get('collected_at', '').isoformat() if paper_data.get('collected_at') else None
+        )
         
     except HTTPException:
         raise
@@ -62,8 +77,30 @@ async def get_papers(
         end_idx = offset + limit
         paginated_papers_data = all_papers_data[start_idx:end_idx]
         
-        # PaperResponse로 변환
-        papers = [PaperResponse.from_paper(paper_data) for paper_data in paginated_papers_data]
+        # PaperResponse로 변환 (dict에서 직접 생성)
+        papers = []
+        for paper_data in paginated_papers_data:
+            try:
+                # dict에서 직접 PaperResponse 생성
+                paper_response = PaperResponse(
+                    id=paper_data.get('id'),
+                    title=paper_data.get('title'),
+                    authors=paper_data.get('authors', []),
+                    abstract=paper_data.get('abstract'),
+                    summary=paper_data.get('summary'),
+                    short_summary=paper_data.get('short_summary'),
+                    url=str(paper_data.get('url', '')),
+                    arxiv_id=paper_data.get('arxiv_id'),
+                    categories=paper_data.get('categories'),
+                    upvotes=paper_data.get('upvotes', 0),
+                    thumbnail_url=str(paper_data.get('thumbnail_url', '')) if paper_data.get('thumbnail_url') else None,
+                    published_date=paper_data.get('published_date'),
+                    collected_at=paper_data.get('collected_at', '').isoformat() if paper_data.get('collected_at') else None
+                )
+                papers.append(paper_response)
+            except Exception as e:
+                print(f"Error creating PaperResponse for paper {paper_data.get('id', 'unknown')}: {e}")
+                continue
         
         return papers
         

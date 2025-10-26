@@ -10,6 +10,7 @@ from functools import lru_cache
 import os
 
 from api.repository_gcs import GCSPodcastRepository, CachedGCSPodcastRepository
+from src.utils.config import config
 
 
 @lru_cache()
@@ -19,12 +20,9 @@ def get_repository() -> GCSPodcastRepository:
     
     싱글톤 패턴으로 GCS Repository 인스턴스를 관리합니다.
     """
-    bucket_name = os.getenv("GCS_BUCKET_NAME", "papercast-podcasts")
-    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    
     return CachedGCSPodcastRepository(
-        bucket_name=bucket_name,
-        credentials_path=credentials_path
+        bucket_name=config.gcs_bucket_name,
+        credentials_path=config.google_credentials_path
     )
 
 

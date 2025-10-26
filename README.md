@@ -253,6 +253,23 @@ GCP Service Account에 다음 역할을 부여하세요:
 - **Cloud Storage Admin**: MP3 파일 및 메타데이터 업로드
 - **Cloud Text-to-Speech Admin**: 음성 변환
 
+### Credential 설정 문제 해결
+
+JSON 디코딩 오류가 발생하는 경우:
+
+1. **Base64 인코딩 확인**:
+   ```bash
+   cat service-account-key.json | base64 -w 0
+   ```
+
+2. **로컬 테스트**:
+   ```bash
+   export GCP_SERVICE_ACCOUNT_KEY="your_base64_encoded_key"
+   python test_credentials.py
+   ```
+
+3. **자세한 문제 해결**: [Credential 문제 해결 가이드](docs/troubleshooting-credentials.md) 참조
+
 ### 워크플로우 실행
 
 1. **자동 실행**: 매일 오전 6시 (KST)에 자동으로 실행됩니다
