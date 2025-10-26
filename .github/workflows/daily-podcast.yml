@@ -60,6 +60,8 @@ jobs:
           echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > credentials/service-account.json
           # Verify the JSON file is valid
           python -c "import json; json.load(open('credentials/service-account.json')); print('✅ Valid JSON file created')"
+          # Set GOOGLE_APPLICATION_CREDENTIALS environment variable
+          echo "GOOGLE_APPLICATION_CREDENTIALS=./credentials/service-account.json" >> $GITHUB_ENV
 
       - name: Set up data directory
         run: |
@@ -72,7 +74,6 @@ jobs:
       - name: Generate podcast episode
         env:
           # Google Cloud
-          GOOGLE_APPLICATION_CREDENTIALS: ./credentials/service-account.json
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
           
           # AI Services
@@ -84,13 +85,13 @@ jobs:
           # Verify credentials file exists and is readable
           ls -la credentials/
           echo "File size: $(wc -c < credentials/service-account.json) bytes"
+          echo "GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
           # GCS 기반 데이터 저장을 위한 메인 파이프라인 실행
           python src/main.py
 
       - name: Run tests
         env:
           GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
-          GOOGLE_APPLICATION_CREDENTIALS: ./credentials/service-account.json
         run: |
           # GCS 기반 테스트 실행
           python -m pytest tests/ -v --cov=src --cov-report=xml
@@ -133,7 +134,7 @@ jobs:
             --platform managed \
             --region asia-northeast3 \
             --allow-unauthenticated \
-            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/service-account.json" \
+            --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" \
             --set-secrets="GCP_SERVICE_ACCOUNT_KEY=${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}:latest"
 
   deploy-frontend:
