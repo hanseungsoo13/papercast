@@ -281,15 +281,24 @@ class PodcastPipeline:
             status="completed"
         )
         
-        # Save podcast metadata locally
-        podcast_file = config.podcasts_dir / f"{self.podcast_id}.json"
-        with open(podcast_file, 'w', encoding='utf-8') as f:
-            import json
-            json.dump(podcast.to_dict(), f, ensure_ascii=False, indent=2)
-        
-        self.logger.info(f"Podcast metadata saved to {podcast_file}")
+        # Save podcast metadata to GCS (not local file)
+        self._save_podcast_to_gcs(podcast)
         
         return podcast
+    
+    def _save_podcast_to_gcs(self, podcast: Podcast) -> str:
+        """Save podcast metadata to GCS."""
+        try:
+            # GCS에 팟캐스트 메타데이터 저장
+            destination = f"podcasts/{podcast.id}.json"
+            metadata_url = self.uploader.upload_json(podcast.to_dict(), destination)
+            
+            self.logger.info(f"Podcast metadata saved to GCS: {metadata_url}")
+            return metadata_url
+            
+        except Exception as e:
+            self.logger.error(f"Failed to save podcast metadata to GCS: {e}")
+            raise
     
     def _create_podcast_script(self, papers: list[Paper]) -> str:
         """Create podcast script from papers using Gemini.

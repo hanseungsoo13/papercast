@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from api.schemas import PaperResponse
 from api.dependencies import get_repository
-from api.repository import PodcastRepository
 from src.models.paper import Paper
 
 router = APIRouter()
@@ -15,7 +14,7 @@ router = APIRouter()
 @router.get("/papers/{paper_id}", response_model=PaperResponse)
 async def get_paper(
     paper_id: str,
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     특정 논문 조회
@@ -23,19 +22,16 @@ async def get_paper(
     ID로 특정 논문의 상세 정보를 반환합니다.
     """
     try:
-        # 모든 에피소드에서 논문 검색
-        episodes = repo.find_all()
+        # GCS에서 논문 검색
+        paper_data = repo.find_paper_by_id(paper_id)
         
-        for episode in episodes:
-            for paper in episode.papers:
-                if paper.id == paper_id:
-                    return PaperResponse.from_paper(paper)
+        if not paper_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"논문 '{paper_id}'를 찾을 수 없습니다"
+            )
         
-        # 논문을 찾지 못한 경우
-        raise HTTPException(
-            status_code=404,
-            detail=f"논문 '{paper_id}'를 찾을 수 없습니다"
-        )
+        return PaperResponse.from_paper(paper_data)
         
     except HTTPException:
         raise
@@ -50,7 +46,7 @@ async def get_paper(
 async def get_papers(
     limit: int = 20,
     offset: int = 0,
-    repo: PodcastRepository = Depends(get_repository)
+    repo = Depends(get_repository)
 ):
     """
     논문 목록 조회
@@ -58,19 +54,18 @@ async def get_papers(
     모든 에피소드의 논문들을 조회합니다.
     """
     try:
-        episodes = repo.find_all()
-        all_papers = []
-        
-        for episode in episodes:
-            for paper in episode.papers:
-                all_papers.append(PaperResponse.from_paper(paper))
+        # GCS에서 모든 논문 조회
+        all_papers_data = repo.get_all_papers()
         
         # 페이지네이션 적용
         start_idx = offset
         end_idx = offset + limit
-        paginated_papers = all_papers[start_idx:end_idx]
+        paginated_papers_data = all_papers_data[start_idx:end_idx]
         
-        return paginated_papers
+        # PaperResponse로 변환
+        papers = [PaperResponse.from_paper(paper_data) for paper_data in paginated_papers_data]
+        
+        return papers
         
     except Exception as e:
         raise HTTPException(

@@ -11,10 +11,14 @@ const nextConfig = {
     domains: ['storage.googleapis.com', 'huggingface.co'],
   },
   async rewrites() {
+    // 프로덕션에서는 환경 변수 사용, 개발에서는 localhost 사용
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
+    const backendUrl = apiUrl.replace('/api', '');
+    
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8001/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },
