@@ -1,0 +1,4 @@
+Flask
+google-cloud-firestore
+gunicorn  # Flask 서버를 프로덕션 환경에서 실행하기 위한 도구
+flask-cors # 웹사이트(다른 도메인)가 이 API에 접근할 수 있게 해줌
