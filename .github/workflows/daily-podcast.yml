@@ -110,17 +110,18 @@ jobs:
         env:
           # 사용할 시크릿들을 환경 변수로 설정합니다.
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
         run: |
-          # 팟캐스트 날짜와 GCS URL을 동적으로 생성합니다.
+          # 팟캐스트 날짜를 동적으로 생성합니다. (KST 기준)
           PODCAST_DATE=$(date +%Y-%m-%d)
-          PODCAST_URL="https://storage.googleapis.com/${GCS_BUCKET_NAME}/${PODCAST_DATE}/episode.mp3"
+          
+          # Vercel 웹사이트 URL을 생성합니다.
+          WEBSITE_URL="https://papercast-sigma.vercel.app/episodes/${PODCAST_DATE}"
           
           # JSON 페이로드를 변수로 만들어 curl 명령을 깔끔하게 유지합니다.
           # Slack의 mrkdwn 형식을 사용합니다.
           JSON_PAYLOAD=$(cat <<EOF
           {
-            "text": "✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +'%H:%M:%S KST')\n• <${PODCAST_URL}|🎧 팟캐스트 듣기>\n📚 새로운 AI 논문 팟캐스트를 들어보세요!"
+            "text": "✅ *PaperCast 생성 완료!*\n• 날짜: ${PODCAST_DATE}\n• 시간: $(date +'%H:%M:%S KST')\n• <${WEBSITE_URL}|🌐 웹사이트에서 보기>\n📚 새로운 AI 논문 팟캐스트가 Vercel에 배포되었습니다!"
           }
           EOF
           )
