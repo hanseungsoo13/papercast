@@ -56,12 +56,26 @@ def process_metadata(event, context):
     # 3. Batch 작업 실행
     batch.commit()
     #4. ▼▼▼ Vercel 재배포 트리거 ▼▼▼
-    try:
-        response = requests.post(VERCEL_DEPLOY_HOOK_URL)
-        if response.status_code == 200 or response.status_code == 201:
-            print(f"Successfully triggered Vercel redeploy.")
-        else:
-            print(f"Failed to trigger Vercel redeploy: {response.status_code}")
-    except Exception as e:
-        print(f"Error triggering Vercel redeploy: {e}")
-    print(f"Successfully processed and stored episode {episode_id} in Firestore.")
+
+    if VERCEL_DEPLOY_HOOK_URL is None:
+        try:
+            print("Fetching Vercel Deploy Hook URL from Secret Manager...")
+            response = secret_client.access_secret_version(name=SECRET_VERSION_NAME)
+            VERCEL_DEPLOY_HOOK_URL = response.payload.data.decode("UTF-8")
+            print("Successfully fetched secret.")
+        except Exception as e:
+            print(f"CRITICAL: Error fetching secret from Secret Manager: {e}")
+            # 비밀을 못 가져오면 배포를 트리거할 수 없으므로, 여기서 함수를 종료합니다.
+            return
+
+    if VERCEL_DEPLOY_HOOK_URL:        
+        try:
+            response = requests.post(VERCEL_DEPLOY_HOOK_URL)
+            if response.status_code == 200 or response.status_code == 201:
+                print(f"Successfully triggered Vercel redeploy.")
+            else:
+                print(f"Failed to trigger Vercel redeploy: {response.status_code}")
+        except Exception as e:
+            print(f"Error triggering Vercel redeploy: {e}")
+    else:
+        print("No Vercel Deploy Hook URL found.")
