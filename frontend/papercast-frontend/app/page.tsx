@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 // API URL (환경 변수로 빼는 것이 가장 좋습니다)
-const API_URL = "https://podcast-backend-api-740616655373.asia-northeast3.run.app";
+const API_URL = process.env.API_URL;
 
 // 1. API 응답 데이터의 타입을 정의합니다 (TypeScript)
 interface Episode {
