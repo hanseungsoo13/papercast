@@ -49,7 +49,7 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          cd frontend
+          cd frontend/papercast-frontend
           npm install
 
       - name: Set up Google Cloud credentials
