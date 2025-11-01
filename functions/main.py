@@ -20,6 +20,7 @@ VERCEL_DEPLOY_HOOK_URL = None
 
 def process_metadata(event, context):
     """GCS에 metadata.json이 생성되면 Firestore에 데이터를 저장하는 함수"""
+    global VERCEL_DEPLOY_HOOK_URL
     
     bucket_name = event['bucket']
     file_name = event['name']
