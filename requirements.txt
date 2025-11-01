@@ -11,9 +11,10 @@ mutagen>=1.47.0
 beautifulsoup4>=4.12.0
 
 # API Dependencies
-httpx>=0.25.0
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+Flask
+google-cloud-firestore
+gunicorn  # Flask 서버를 프로덕션 환경에서 실행하기 위한 도구
+flask-cors # 웹사이트(다른 도메인)가 이 API에 접근할 수 있게 해줌
 
 # Development Server
 livereload>=2.6.3
