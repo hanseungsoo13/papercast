@@ -3,11 +3,20 @@
 # Deploy with `firebase deploy`
 
 import json
-from google.cloud import firestore, storage
+import requests
+from google.cloud import firestore, storage, secretmanager
 
 # 클라이언트 초기화
 db = firestore.Client()
 storage_client = storage.Client()
+secret_client = secretmanager.SecretManagerServiceClient()
+
+project_id = "gen-lang-client-0720034817" 
+secret_name = "vercel-deploy-hook-url"
+SECRET_VERSION_NAME = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+
+# 4. URL을 담을 전역 변수 (캐시 용도)
+VERCEL_DEPLOY_HOOK_URL = None
 
 def process_metadata(event, context):
     """GCS에 metadata.json이 생성되면 Firestore에 데이터를 저장하는 함수"""
@@ -46,4 +55,13 @@ def process_metadata(event, context):
 
     # 3. Batch 작업 실행
     batch.commit()
+    #4. ▼▼▼ Vercel 재배포 트리거 ▼▼▼
+    try:
+        response = requests.post(VERCEL_DEPLOY_HOOK_URL)
+        if response.status_code == 200 or response.status_code == 201:
+            print(f"Successfully triggered Vercel redeploy.")
+        else:
+            print(f"Failed to trigger Vercel redeploy: {response.status_code}")
+    except Exception as e:
+        print(f"Error triggering Vercel redeploy: {e}")
     print(f"Successfully processed and stored episode {episode_id} in Firestore.")
