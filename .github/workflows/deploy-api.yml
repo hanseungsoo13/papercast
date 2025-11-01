@@ -7,6 +7,7 @@ on:
     # API 폴더 내부의 파일이 변경되었을 때만 이 워크플로우를 실행합니다.
     paths:
       - 'api/**'
+  workflow_dispatch:
 
 permissions:
   contents: 'read'
