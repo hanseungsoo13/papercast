@@ -9,7 +9,7 @@ on:
       test_mode:
         description: 'Run in test mode (use mock data)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
