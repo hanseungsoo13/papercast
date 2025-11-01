@@ -36,11 +36,12 @@ async function getEpisodeDetail(id: string): Promise<EpisodeDetail> {
 }
 
 // 3. 상세 페이지 컴포넌트
-export default async function EpisodeDetailPage({ params }: { params: { id: string } }) {
-    if (!params.id || params.id === 'undefined') {
+export default async function EpisodeDetailPage(props: { params: Promise<{ id: string }> }) {
+    const { id } = await props.params;
+    if (!id || id === 'undefined') {
         notFound();
       }
-    const episode = await getEpisodeDetail(params.id);
+    const episode = await getEpisodeDetail(id);
 
   return (
     <main className="container mx-auto max-w-3xl p-8">
