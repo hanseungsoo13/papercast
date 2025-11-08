@@ -53,7 +53,7 @@ export default function Calendar({ selectedDate, onDateSelect, availableDates = 
           caption: 'flex justify-center pt-1 relative items-center mb-4',
           caption_label: 'text-lg font-semibold text-gray-900',
           nav: 'space-x-1 flex items-center',
-          nav_button: 'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 rounded hover:bg-gray-100 flex items-center justify-center',
+          nav_button: 'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 rounded hover:bg-gray-100 flex items-center justify-center text-gray-700',
           nav_button_previous: 'absolute left-1',
           nav_button_next: 'absolute right-1',
           table: 'w-full border-collapse space-y-1',
@@ -68,10 +68,6 @@ export default function Calendar({ selectedDate, onDateSelect, availableDates = 
           day_disabled: 'opacity-30 cursor-not-allowed',
           day_range_middle: 'aria-selected:bg-blue-50 aria-selected:text-blue-900',
           day_hidden: 'invisible',
-        }}
-        components={{
-          IconLeft: () => <span className="text-gray-700">‹</span>,
-          IconRight: () => <span className="text-gray-700">›</span>,
         }}
       />
       {selectedDate && (

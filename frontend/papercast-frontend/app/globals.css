@@ -47,3 +47,20 @@ body {
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* 네비게이션 버튼 아이콘 커스터마이징 */
+.rdp-nav_button_previous::before {
+  content: '‹';
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.rdp-nav_button_next::before {
+  content: '›';
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.rdp-nav_button svg {
+  display: none;
+}
