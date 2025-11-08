@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import PaperThumbnail from '../../../components/PaperThumbnail';
 
 // API URL
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -143,15 +144,10 @@ export default async function EpisodeDetailPage(props: {
                 <div className="flex flex-col sm:flex-row gap-6 mb-6">
                   {/* 썸네일 */}
                   <div className="flex-shrink-0">
-                    <img
+                    <PaperThumbnail
                       src={paper.thumbnail_url}
                       alt={`${paper.title} thumbnail`}
                       className="w-full sm:w-40 h-auto object-cover rounded-lg border-2 border-gray-200 shadow-sm"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src =
-                          'https://via.placeholder.com/400x300?text=No+Image';
-                      }}
                     />
                   </div>
 
