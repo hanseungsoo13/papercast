@@ -46,4 +46,3 @@ export default function HomePageClient({ availableDates, apiUrl }: HomePageClien
     </div>
   );
 }
-

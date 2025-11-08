@@ -173,4 +173,3 @@ export default function PaperList({ selectedDate, apiUrl }: PaperListProps) {
     </div>
   );
 }
-

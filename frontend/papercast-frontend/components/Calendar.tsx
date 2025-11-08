@@ -81,4 +81,3 @@ export default function Calendar({ selectedDate, onDateSelect, availableDates = 
     </div>
   );
 }
-
